@@ -1,0 +1,17 @@
+# Email Order Processor — Dipendenze Python
+
+# Claude AI
+anthropic>=0.40.0
+
+# Telegram bot
+python-telegram-bot>=20.7
+
+# Config
+pyyaml>=6.0
+python-dotenv>=1.0
+
+# PDF reading (allegati PDF)
+pdfplumber>=0.10
+
+# Excel reading (allegati Excel)
+openpyxl>=3.1
