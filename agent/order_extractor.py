@@ -1,5 +1,5 @@
 """
-Order extractor using Claude AI.
+Order extractor using Ollama (local LLM).
 
 Given an email (body + attachments), extracts:
   - customer info (name, company, email)
@@ -12,19 +12,21 @@ Works with:
   - HTML emails
   - PDF attachments (via pdfplumber)
   - Excel/CSV attachments (via openpyxl / csv)
+
+Requires Ollama running locally: https://ollama.com
+Default model: mistral:7b
 """
 
 from __future__ import annotations
 
-import base64
 import io
 import json
-import tempfile
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
-import anthropic
+import requests
 
 # Optional imports — only fail at usage time if not installed
 try:
@@ -110,13 +112,13 @@ Schema JSON atteso:
 
 class OrderExtractor:
     """
-    Uses Claude claude-opus-4-6 to extract structured order data from emails.
+    Uses a local Ollama model to extract structured order data from emails.
+    Ollama must be running: https://ollama.com
     """
 
-    def __init__(self, api_key: str = None):
-        self.client = anthropic.Anthropic(
-            api_key=api_key or os.environ.get("ANTHROPIC_API_KEY")
-        )
+    def __init__(self, model: str = None, ollama_url: str = None):
+        self.model = model or os.environ.get("OLLAMA_MODEL", "mistral:7b")
+        self.ollama_url = (ollama_url or os.environ.get("OLLAMA_URL", "http://localhost:11434")).rstrip("/")
 
     def extract(self, msg: EmailMessage) -> OrdineEstratto:
         """Extract order information from an EmailMessage."""
@@ -141,23 +143,38 @@ class OrderExtractor:
 
         full_prompt = "\n\n".join(prompt_parts)
 
-        # --- Call Claude ---
-        response = self.client.messages.create(
-            model="claude-opus-4-6",
-            max_tokens=4096,
-            thinking={"type": "adaptive"},
-            system=_SYSTEM_PROMPT,
-            messages=[
-                {"role": "user", "content": full_prompt}
-            ],
-        )
+        # --- Call Ollama ---
+        try:
+            response = requests.post(
+                f"{self.ollama_url}/api/chat",
+                json={
+                    "model": self.model,
+                    "stream": False,
+                    "messages": [
+                        {"role": "system", "content": _SYSTEM_PROMPT},
+                        {"role": "user", "content": full_prompt},
+                    ],
+                    "options": {"temperature": 0.1},
+                },
+                timeout=120,
+            )
+            response.raise_for_status()
+        except requests.exceptions.ConnectionError:
+            return OrdineEstratto(
+                avvisi=["Ollama non raggiungibile. Assicurati che sia in esecuzione: ollama serve"],
+                confidenza="bassa"
+            )
+        except requests.exceptions.RequestException as e:
+            return OrdineEstratto(
+                avvisi=[f"Errore chiamata Ollama: {e}"],
+                confidenza="bassa"
+            )
 
-        raw_text = _get_text_content(response)
+        raw_text = response.json().get("message", {}).get("content", "").strip()
 
         try:
             data = json.loads(raw_text)
         except json.JSONDecodeError:
-            # Try to extract JSON from the text
             data = _extract_json_from_text(raw_text)
             if not data:
                 return OrdineEstratto(
@@ -184,18 +201,8 @@ class OrderExtractor:
 
 # ── Private helpers ───────────────────────────────────────────────────────────
 
-def _get_text_content(response: anthropic.types.Message) -> str:
-    """Extract text content from Claude response (skips thinking blocks)."""
-    for block in response.content:
-        if block.type == "text":
-            return block.text.strip()
-    return ""
-
-
 def _extract_json_from_text(text: str) -> Optional[dict]:
     """Try to find and parse JSON inside a text string."""
-    import re
-    # Look for JSON object
     match = re.search(r'\{.*\}', text, re.DOTALL)
     if match:
         try:
@@ -235,7 +242,6 @@ def _strip_html(html: str) -> str:
     """Very basic HTML stripper."""
     if not html:
         return ""
-    import re
     text = re.sub(r'<[^>]+>', ' ', html)
     text = re.sub(r'&nbsp;', ' ', text)
     text = re.sub(r'&amp;', '&', text)

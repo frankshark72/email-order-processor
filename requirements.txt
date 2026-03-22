@@ -1,7 +1,7 @@
 # Email Order Processor — Dipendenze Python
 
-# Claude AI
-anthropic>=0.40.0
+# HTTP client per Ollama
+requests>=2.31.0
 
 # Telegram bot
 python-telegram-bot>=20.7
