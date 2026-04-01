@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  agent:
+    build: .
+    container_name: email-order-processor
+    restart: unless-stopped
+
+    # Condivide la rete dell'host: permette di raggiungere
+    # - EspoCRM via IP LAN della VM (es. http://192.168.1.x/espocrm)
+    # - Ollama nativo via http://localhost:11434
+    # - Il futuro webhook chiamate è esposto direttamente sulla porta host
+    network_mode: host
+
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro   # configurazione (read-only)
+      - ./data:/app/data                     # SQLite telegram_pending
+
+    env_file:
+      - .env
