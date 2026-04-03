@@ -80,6 +80,104 @@ def _search(entity: str, where: list, select: str = "", max_size: int = 50) -> l
 # ── Tool: clienti ─────────────────────────────────────────────────────────────
 
 @mcp.tool()
+def crea_cliente(
+    nome: str,
+    telefono: str = "",
+    email: str = "",
+    indirizzo: str = "",
+    citta: str = "",
+    cap: str = "",
+    zona: str = "",
+    tipo: str = "cliente",
+    frequenza_visita_giorni: int = 30,
+    note: str = "",
+) -> str:
+    """
+    Crea un nuovo cliente (Account) in EspoCRM.
+    tipo: 'cliente' o 'fornitore'
+    frequenza_visita_giorni: ogni quanti giorni visitarlo (default 30)
+    """
+    payload: dict = {"name": nome}
+    if telefono:
+        payload["phoneNumber"] = telefono
+    if email:
+        payload["emailAddress"] = email
+    if indirizzo:
+        payload["billingAddressStreet"] = indirizzo
+    if citta:
+        payload["billingAddressCity"] = citta
+    if cap:
+        payload["billingAddressPostalCode"] = cap
+    if zona:
+        payload["zona"] = zona
+    if tipo:
+        payload["tipoAccount"] = tipo
+    if frequenza_visita_giorni:
+        payload["frequenzaVisitaGiorni"] = frequenza_visita_giorni
+    if note:
+        payload["description"] = note
+
+    result = _post("Account", payload)
+    record_id = result.get("id", "?")
+    return (
+        f"✅ Cliente '{nome}' creato in EspoCRM.\n"
+        f"   ID: {record_id}\n"
+        f"   📞 {telefono or '—'} | ✉️ {email or '—'}\n"
+        f"   📍 {', '.join(filter(None,[indirizzo,cap,citta])) or '—'} | zona: {zona or '—'}"
+    )
+
+
+@mcp.tool()
+def aggiorna_cliente(
+    nome: str,
+    telefono: str = "",
+    email: str = "",
+    indirizzo: str = "",
+    citta: str = "",
+    cap: str = "",
+    zona: str = "",
+    tipo: str = "",
+    frequenza_visita_giorni: int = 0,
+    note: str = "",
+) -> str:
+    """
+    Aggiorna i dati di un cliente esistente in EspoCRM (ricerca per nome).
+    Passa solo i campi che vuoi modificare.
+    """
+    accounts = _search("Account", [{"type": "contains", "attribute": "name", "value": nome}],
+                       select="id,name", max_size=1)
+    if not accounts:
+        return f"Cliente '{nome}' non trovato in EspoCRM."
+    account = accounts[0]
+
+    payload: dict = {}
+    if telefono:
+        payload["phoneNumber"] = telefono
+    if email:
+        payload["emailAddress"] = email
+    if indirizzo:
+        payload["billingAddressStreet"] = indirizzo
+    if citta:
+        payload["billingAddressCity"] = citta
+    if cap:
+        payload["billingAddressPostalCode"] = cap
+    if zona:
+        payload["zona"] = zona
+    if tipo:
+        payload["tipoAccount"] = tipo
+    if frequenza_visita_giorni:
+        payload["frequenzaVisitaGiorni"] = frequenza_visita_giorni
+    if note:
+        payload["description"] = note
+
+    if not payload:
+        return "Nessun campo da aggiornare specificato."
+
+    _patch("Account", account["id"], payload)
+    campi = ", ".join(payload.keys())
+    return f"✅ Cliente '{account['name']}' aggiornato. Campi modificati: {campi}"
+
+@mcp.tool()
 def cerca_cliente(nome: str) -> str:
     """Cerca un cliente/account in EspoCRM per nome (ricerca parziale). Restituisce contatti completi."""
     results = _search("Account", [{"type": "contains", "attribute": "name", "value": nome}],
