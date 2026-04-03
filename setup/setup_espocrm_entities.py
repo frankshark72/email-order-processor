@@ -1,26 +1,35 @@
 #!/usr/bin/env python3
 """
 Setup entità e campi custom in EspoCRM.
-Esegui UNA VOLTA SOLA dalla VPS:
+Esegui UNA VOLTA SOLA:
 
-  export ESPOCRM_URL=http://100.79.250.23:8080
-  export ESPOCRM_API_KEY=42f83e62ee977187aa76d2e701bb6fcc
-  python setup/setup_espocrm_entities.py
+  export ESPOCRM_URL=http://localhost:8080
+  export ESPOCRM_USER=admin
+  export ESPOCRM_PASS=<password-admin>
+  python3 setup/setup_espocrm_entities.py
+
+Nota: EntityManager richiede credenziali admin (non solo API key).
 """
 
 import os
 import sys
-import json
+import base64
 import requests
 
-ESPOCRM_URL = os.environ.get("ESPOCRM_URL", "http://100.79.250.23:8080").rstrip("/")
-ESPOCRM_API_KEY = os.environ.get("ESPOCRM_API_KEY", "")
+ESPOCRM_URL = os.environ.get("ESPOCRM_URL", "http://localhost:8080").rstrip("/")
+ESPOCRM_USER = os.environ.get("ESPOCRM_USER", "admin")
+ESPOCRM_PASS = os.environ.get("ESPOCRM_PASS", "")
 API_BASE = f"{ESPOCRM_URL}/api/v1"
 
-if not ESPOCRM_API_KEY:
-    sys.exit("Errore: ESPOCRM_API_KEY non impostata.")
+if not ESPOCRM_PASS:
+    sys.exit("Errore: imposta ESPOCRM_PASS con la password dell'utente admin.")
 
-HEADERS = {"X-Api-Key": ESPOCRM_API_KEY, "Content-Type": "application/json"}
+# Basic Auth per EntityManager (richiede admin)
+_creds = base64.b64encode(f"{ESPOCRM_USER}:{ESPOCRM_PASS}".encode()).decode()
+HEADERS = {
+    "Authorization": f"Basic {_creds}",
+    "Content-Type": "application/json",
+}
 
 ok = 0
 skip = 0
@@ -29,7 +38,12 @@ err = 0
 
 def _post(endpoint: str, payload: dict) -> dict | None:
     r = requests.post(f"{API_BASE}/{endpoint}", headers=HEADERS, json=payload, timeout=30)
-    return r.json() if r.ok else None
+    if not r.ok:
+        return {"_error": r.status_code, "_body": r.text[:300]}
+    try:
+        return r.json()
+    except Exception:
+        return {"_raw": r.text[:300]}
 
 
 def create_entity(name: str, label: str, label_plural: str) -> bool:
@@ -49,7 +63,7 @@ def create_entity(name: str, label: str, label_plural: str) -> bool:
         print(f"   ✅ creata")
         ok += 1
         return True
-    elif result and "already exists" in str(result).lower():
+    elif result and ("already exists" in str(result).lower() or "exists" in str(result).lower()):
         print(f"   ⏭  già esistente")
         skip += 1
         return True
@@ -59,9 +73,16 @@ def create_entity(name: str, label: str, label_plural: str) -> bool:
         return False
 
 
-def add_field(entity: str, field_type: str, name: str, label: str, **kwargs) -> bool:
+def add_field(entity_type: str, field_type: str, name: str, label: str, **kwargs) -> bool:
+    """Aggiunge un campo a un'entità EspoCRM."""
     global ok, skip, err
-    payload = {"entityType": entity, "type": field_type, "name": name, "label": label, **kwargs}
+    payload = {
+        "entityType": entity_type,
+        "type": field_type,
+        "name": name,
+        "label": label,
+        **kwargs
+    }
     result = _post("EntityManager/createField", payload)
     if result and result.get("success"):
         print(f"   ✅ {name} ({field_type})")
@@ -77,47 +98,24 @@ def add_field(entity: str, field_type: str, name: str, label: str, **kwargs) -> 
         return False
 
 
-def add_relationship(entity_a: str, entity_b: str, rel_type: str = "manyToOne",
-                     name_a: str = "", name_b: str = "") -> bool:
-    global ok, skip, err
-    result = _post("EntityManager/createRelationship", {
-        "entityA": entity_a,
-        "entityB": entity_b,
-        "relationshipType": rel_type,
-        "labelA": name_a or entity_a,
-        "labelB": name_b or entity_b,
-    })
-    if result and result.get("success"):
-        print(f"   ✅ relazione {entity_a} ↔ {entity_b}")
-        ok += 1
-        return True
-    else:
-        print(f"   ⏭  relazione {entity_a} ↔ {entity_b}: {result}")
-        skip += 1
-        return True  # spesso già esiste, non è un errore bloccante
-
-
 # ─────────────────────────────────────────────────────────────────────────────
-# 1. Campi custom su Account (clienti + fornitori)
+# 1. Campi custom su Account
 # ─────────────────────────────────────────────────────────────────────────────
 print("\n" + "="*60)
 print("1. CAMPI CUSTOM SU ACCOUNT")
 print("="*60)
 
-add_field("Account", "varchar", "zona", "Zona")
-add_field("Account", "enum", "tipoAccount", "Tipo Account",
-          options=["cliente", "fornitore", "prospect"],
-          default="cliente")
-add_field("Account", "int", "frequenzaVisitaGiorni", "Frequenza Visita (giorni)",
-          default=30)
-add_field("Account", "date", "ultimaVisita", "Ultima Visita")
-add_field("Account", "varchar", "referente", "Referente")
-add_field("Account", "enum", "priorita", "Priorità",
-          options=["alta", "media", "bassa"],
-          default="media")
-add_field("Account", "float", "latitudine", "Latitudine")
-add_field("Account", "float", "longitudine", "Longitudine")
-add_field("Account", "varchar", "condizioniPagamento", "Condizioni di Pagamento")
+add_field("Account", "varchar",  "zona",                  "Zona")
+add_field("Account", "enum",     "tipoAccount",            "Tipo Account",
+          options=["cliente", "fornitore", "prospect"], default="cliente")
+add_field("Account", "int",      "frequenzaVisitaGiorni",  "Frequenza Visita (giorni)", default=30)
+add_field("Account", "date",     "ultimaVisita",           "Ultima Visita")
+add_field("Account", "varchar",  "referente",              "Referente")
+add_field("Account", "enum",     "priorita",               "Priorità",
+          options=["alta", "media", "bassa"], default="media")
+add_field("Account", "float",    "latitudine",             "Latitudine")
+add_field("Account", "float",    "longitudine",            "Longitudine")
+add_field("Account", "varchar",  "condizioniPagamento",    "Condizioni di Pagamento")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Campi custom su Prodotto
@@ -126,13 +124,12 @@ print("\n" + "="*60)
 print("2. CAMPI CUSTOM SU PRODOTTO")
 print("="*60)
 
-add_field("Prodotto", "link", "fornitore", "Fornitore",
-          entity="Account")
-add_field("Prodotto", "varchar", "categoria", "Categoria")
-add_field("Prodotto", "varchar", "codice", "Codice Prodotto")
-add_field("Prodotto", "enum", "unitaMisura", "Unità di Misura",
-          options=["pz", "kg", "lt", "cassa", "collo", "conf"],
-          default="pz")
+# Nota: per link fields, "entity" è il nome dell'entità collegata
+add_field("Prodotto", "link",    "fornitore",   "Fornitore",        entity="Account")
+add_field("Prodotto", "varchar", "categoria",   "Categoria")
+add_field("Prodotto", "varchar", "codice",      "Codice Prodotto")
+add_field("Prodotto", "enum",    "unitaMisura", "Unità di Misura",
+          options=["pz", "kg", "lt", "cassa", "collo", "conf"], default="pz")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. Campi custom su Listino
@@ -141,10 +138,9 @@ print("\n" + "="*60)
 print("3. CAMPI CUSTOM SU LISTINO")
 print("="*60)
 
-add_field("Listino", "link", "fornitore", "Fornitore",
-          entity="Account")
+add_field("Listino", "link", "fornitore", "Fornitore", entity="Account")
 add_field("Listino", "date", "validoDal", "Valido Dal")
-add_field("Listino", "date", "validoAl", "Valido Al")
+add_field("Listino", "date", "validoAl",  "Valido Al")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. Nuova entità: ScontoCliente
@@ -155,13 +151,13 @@ print("="*60)
 
 create_entity("ScontoCliente", "Sconto Cliente", "Sconti Clienti")
 
-add_field("ScontoCliente", "link", "cliente", "Cliente", entity="Account")
-add_field("ScontoCliente", "link", "fornitore", "Fornitore", entity="Account")
-add_field("ScontoCliente", "varchar", "categoria", "Categoria Prodotto")
-add_field("ScontoCliente", "float", "sconto", "Sconto %")
-add_field("ScontoCliente", "date", "validoDal", "Valido Dal")
-add_field("ScontoCliente", "date", "validoAl", "Valido Al")
-add_field("ScontoCliente", "text", "note", "Note")
+add_field("ScontoCliente", "link",    "cliente",    "Cliente",            entity="Account")
+add_field("ScontoCliente", "link",    "fornitore",  "Fornitore",          entity="Account")
+add_field("ScontoCliente", "varchar", "categoria",  "Categoria Prodotto")
+add_field("ScontoCliente", "float",   "sconto",     "Sconto %")
+add_field("ScontoCliente", "date",    "validoDal",  "Valido Dal")
+add_field("ScontoCliente", "date",    "validoAl",   "Valido Al")
+add_field("ScontoCliente", "text",    "note",       "Note")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Nuova entità: RigaListino
@@ -172,11 +168,11 @@ print("="*60)
 
 create_entity("RigaListino", "Riga Listino", "Righe Listino")
 
-add_field("RigaListino", "link", "prodotto", "Prodotto", entity="Prodotto")
-add_field("RigaListino", "link", "listino", "Listino", entity="Listino")
-add_field("RigaListino", "int", "quantitaMinima", "Quantità Minima", default=1)
-add_field("RigaListino", "currency", "prezzoNetto", "Prezzo Netto")
-add_field("RigaListino", "text", "note", "Note")
+add_field("RigaListino", "link",     "prodotto",       "Prodotto",      entity="Prodotto")
+add_field("RigaListino", "link",     "listino",        "Listino",       entity="Listino")
+add_field("RigaListino", "int",      "quantitaMinima", "Qtà Minima",    default=1)
+add_field("RigaListino", "currency", "prezzoNetto",    "Prezzo Netto")
+add_field("RigaListino", "text",     "note",           "Note")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Riepilogo
@@ -187,7 +183,5 @@ print("="*60)
 
 if err == 0:
     print("\n🎉 Setup completato! Ricarica EspoCRM per vedere le modifiche.")
-    print("   Admin → Entity Manager → per verificare campi e entità.")
 else:
-    print(f"\n⚠️  {err} errori — verifica i messaggi sopra.")
-    print("   Probabilmente alcuni campi vanno creati manualmente in Admin → Entity Manager.")
+    print(f"\n⚠️  {err} errori — controlla i messaggi sopra.")
