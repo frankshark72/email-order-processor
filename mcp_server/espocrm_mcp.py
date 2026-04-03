@@ -557,6 +557,152 @@ def briefing() -> str:
     return "\n".join(sezioni)
 
 
+# ── Tool: prezzi e sconti ────────────────────────────────────────────────────
+
+@mcp.tool()
+def sconti_cliente(nome_cliente: str) -> str:
+    """Mostra tutti gli sconti configurati per un cliente (per fornitore e categoria)."""
+    accounts = _search("Account", [{"type": "contains", "attribute": "name", "value": nome_cliente}],
+                       select="id,name", max_size=1)
+    if not accounts:
+        return f"Cliente '{nome_cliente}' non trovato."
+    account = accounts[0]
+
+    sconti = _search("ScontoCliente",
+                     [{"type": "equals", "attribute": "clienteId", "value": account["id"]}],
+                     select="fornitore,fornitoreName,categoria,sconto,validoDal,validoAl,note",
+                     max_size=50)
+    if not sconti:
+        return f"Nessuno sconto configurato per {account['name']}."
+
+    lines = [f"💰 Sconti di {account['name']}:"]
+    for s in sconti:
+        fornitore = s.get("fornitoreName") or "?"
+        categoria = s.get("categoria") or "tutte"
+        sconto = s.get("sconto") or 0
+        val_dal = s.get("validoDal") or ""
+        val_al = s.get("validoAl") or ""
+        validita = f" | valido {val_dal}→{val_al}" if val_dal else ""
+        lines.append(f"  • {fornitore} / {categoria}: {sconto}%{validita}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def aggiungi_sconto(nome_cliente: str, nome_fornitore: str, categoria: str,
+                    sconto: float, valido_dal: str = "", valido_al: str = "",
+                    note: str = "") -> str:
+    """
+    Aggiunge o aggiorna uno sconto per un cliente su un fornitore e categoria.
+    sconto: percentuale (es. 15.0 per 15%)
+    valido_dal / valido_al: formato YYYY-MM-DD (opzionali)
+    """
+    accounts_c = _search("Account", [{"type": "contains", "attribute": "name", "value": nome_cliente}],
+                         select="id,name", max_size=1)
+    accounts_f = _search("Account", [{"type": "contains", "attribute": "name", "value": nome_fornitore}],
+                         select="id,name", max_size=1)
+    if not accounts_c:
+        return f"Cliente '{nome_cliente}' non trovato."
+    if not accounts_f:
+        return f"Fornitore '{nome_fornitore}' non trovato."
+
+    cliente = accounts_c[0]
+    fornitore = accounts_f[0]
+
+    payload: dict = {
+        "name": f"{cliente['name']} – {fornitore['name']} – {categoria}",
+        "clienteId": cliente["id"],
+        "fornitoreId": fornitore["id"],
+        "categoria": categoria,
+        "sconto": sconto,
+    }
+    if valido_dal:
+        payload["validoDal"] = valido_dal
+    if valido_al:
+        payload["validoAl"] = valido_al
+    if note:
+        payload["note"] = note
+
+    result = _post("ScontoCliente", payload)
+    return (f"✅ Sconto aggiunto:\n"
+            f"   {cliente['name']} | {fornitore['name']} | {categoria} → {sconto}%")
+
+
+@mcp.tool()
+def calcola_prezzo(nome_prodotto: str, quantita: int, nome_cliente: str = "") -> str:
+    """
+    Calcola il prezzo netto per un prodotto con la quantità indicata,
+    applicando lo sconto del cliente se specificato.
+    """
+    # Trova prodotto
+    prodotti = _search("Prodotto",
+                       [{"type": "contains", "attribute": "name", "value": nome_prodotto}],
+                       select="id,name,categoria,fornitoreName,fornitoreId,unitaMisura",
+                       max_size=1)
+    if not prodotti:
+        return f"Prodotto '{nome_prodotto}' non trovato."
+    prodotto = prodotti[0]
+
+    # Trova prezzo da RigaListino (scaglione più alto ≤ quantita)
+    righe = _search("RigaListino",
+                    [{"type": "equals", "attribute": "prodottoId", "value": prodotto["id"]}],
+                    select="quantitaMinima,prezzoNetto,listinoName",
+                    max_size=20)
+
+    prezzo_base = None
+    listino_nome = ""
+    scaglione_usato = 0
+    for r in sorted(righe, key=lambda x: x.get("quantitaMinima", 0), reverse=True):
+        if (r.get("quantitaMinima") or 0) <= quantita:
+            prezzo_base = r.get("prezzoNetto")
+            listino_nome = r.get("listinoName") or ""
+            scaglione_usato = r.get("quantitaMinima", 1)
+            break
+
+    if prezzo_base is None:
+        return (f"Nessun prezzo trovato per '{prodotto['name']}' "
+                f"(qtà {quantita}). Verifica le righe listino.")
+
+    # Applica sconto cliente se richiesto
+    sconto_pct = 0.0
+    sconto_info = ""
+    if nome_cliente:
+        accounts = _search("Account",
+                           [{"type": "contains", "attribute": "name", "value": nome_cliente}],
+                           select="id,name", max_size=1)
+        if accounts:
+            cliente = accounts[0]
+            categoria = prodotto.get("categoria") or ""
+            fornitore_id = prodotto.get("fornitoreId") or ""
+
+            # Cerca sconto specifico per categoria
+            sconti = _search("ScontoCliente",
+                             [{"type": "equals", "attribute": "clienteId", "value": cliente["id"]},
+                              {"type": "equals", "attribute": "fornitoreId", "value": fornitore_id}],
+                             select="categoria,sconto", max_size=10)
+
+            for s in sconti:
+                cat = (s.get("categoria") or "").lower()
+                if cat == categoria.lower() or cat == "" or cat == "tutte":
+                    sconto_pct = float(s.get("sconto") or 0)
+                    sconto_info = f" (sconto {sconto_pct}% cat. {categoria})"
+                    break
+
+    prezzo_scontato = prezzo_base * (1 - sconto_pct / 100)
+    totale = prezzo_scontato * quantita
+    um = prodotto.get("unitaMisura") or "pz"
+
+    lines = [
+        f"📦 {prodotto['name']} × {quantita} {um}",
+        f"   Listino: {listino_nome} (da qtà {scaglione_usato})",
+        f"   Prezzo base: €{prezzo_base:.4f}/{um}",
+    ]
+    if sconto_pct:
+        lines.append(f"   Sconto{sconto_info}: -{sconto_pct}%")
+        lines.append(f"   Prezzo netto: €{prezzo_scontato:.4f}/{um}")
+    lines.append(f"   💰 Totale: €{totale:.2f}")
+    return "\n".join(lines)
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
