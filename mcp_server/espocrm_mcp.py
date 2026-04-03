@@ -18,9 +18,17 @@ Registrazione in OpenClaw (~/.openclaw/openclaw.json):
 """
 
 import os
+import sys
 import json
+import logging
+import warnings
 from datetime import date, datetime, timedelta
 from typing import Optional
+
+# MCP stdio: stdout è riservato al protocollo JSON-RPC.
+# Qualsiasi output su stdout corrompe lo stream → tutto su stderr.
+logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
+warnings.filterwarnings("ignore")
 
 import requests
 from mcp.server.fastmcp import FastMCP
@@ -444,5 +452,6 @@ def briefing() -> str:
 
 if __name__ == "__main__":
     if not ESPOCRM_API_KEY:
-        raise SystemExit("Errore: variabile ESPOCRM_API_KEY non impostata.")
-    mcp.run()
+        print("Errore: variabile ESPOCRM_API_KEY non impostata.", file=sys.stderr)
+        sys.exit(1)
+    mcp.run(transport="stdio")
