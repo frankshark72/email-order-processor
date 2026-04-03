@@ -81,9 +81,9 @@ def _search(entity: str, where: list, select: str = "", max_size: int = 50) -> l
 
 @mcp.tool()
 def cerca_cliente(nome: str) -> str:
-    """Cerca un cliente/account in EspoCRM per nome (ricerca parziale)."""
+    """Cerca un cliente/account in EspoCRM per nome (ricerca parziale). Restituisce contatti completi."""
     results = _search("Account", [{"type": "contains", "attribute": "name", "value": nome}],
-                      select="id,name,emailAddress,phoneNumber,zona,tipoAccount,frequenzaVisitaGiorni", max_size=10)
+                      select="id,name,emailAddress,phoneNumber,billingAddressStreet,billingAddressCity,billingAddressPostalCode,zona,tipoAccount,frequenzaVisitaGiorni", max_size=10)
     if not results:
         return f"Nessun cliente trovato con nome '{nome}'."
     lines = []
@@ -91,8 +91,17 @@ def cerca_cliente(nome: str) -> str:
         zona = c.get("zona") or "—"
         tipo = c.get("tipoAccount") or "cliente"
         tel = c.get("phoneNumber") or "—"
-        lines.append(f"• {c['name']} | zona: {zona} | tipo: {tipo} | tel: {tel} | id: {c['id']}")
-    return "\n".join(lines)
+        email = c.get("emailAddress") or "—"
+        via = c.get("billingAddressStreet") or ""
+        citta = c.get("billingAddressCity") or ""
+        cap = c.get("billingAddressPostalCode") or ""
+        indirizzo = ", ".join(filter(None, [via, cap, citta])) or "—"
+        lines.append(
+            f"• {c['name']}\n"
+            f"  📞 {tel} | ✉️ {email}\n"
+            f"  📍 {indirizzo} | zona: {zona} | tipo: {tipo}"
+        )
+    return "\n\n".join(lines)
 
 
 @mcp.tool()
@@ -107,7 +116,7 @@ def lista_clienti(zona: Optional[str] = None, tipo: Optional[str] = None, limit:
         where.append({"type": "equals", "attribute": "tipoAccount", "value": tipo})
 
     results = _search("Account", where,
-                      select="id,name,zona,phoneNumber,frequenzaVisitaGiorni,lastActivityDate",
+                      select="id,name,emailAddress,phoneNumber,billingAddressCity,zona,frequenzaVisitaGiorni",
                       max_size=limit)
     if not results:
         return "Nessun cliente trovato."
@@ -115,8 +124,10 @@ def lista_clienti(zona: Optional[str] = None, tipo: Optional[str] = None, limit:
     for c in results:
         zona_c = c.get("zona") or "—"
         tel = c.get("phoneNumber") or "—"
+        email = c.get("emailAddress") or "—"
+        citta = c.get("billingAddressCity") or "—"
         freq = c.get("frequenzaVisitaGiorni") or 30
-        lines.append(f"• {c['name']} | zona: {zona_c} | tel: {tel} | visita ogni {freq}gg | id: {c['id']}")
+        lines.append(f"• {c['name']} | {citta} | 📞 {tel} | ✉️ {email} | zona: {zona_c} | ogni {freq}gg")
     return f"Trovati {len(results)} clienti:\n" + "\n".join(lines)
 
 
