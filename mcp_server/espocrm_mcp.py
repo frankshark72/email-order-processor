@@ -67,11 +67,13 @@ def _patch(entity: str, record_id: str, payload: dict) -> dict:
 
 
 def _search(entity: str, where: list, select: str = "", max_size: int = 50) -> list:
-    """Ricerca con filtri WHERE (formato EspoCRM)."""
+    """Ricerca con filtri WHERE (formato EspoCRM). Ritorna [] se entità non esiste (404)."""
     params: dict = {"where": json.dumps(where), "maxSize": max_size}
     if select:
         params["select"] = select
     r = requests.get(f"{API_BASE}/{entity}", headers=_headers(), params=params, timeout=10)
+    if r.status_code == 404:
+        return []  # entità non ancora creata — non bloccare
     r.raise_for_status()
     data = r.json()
     return data.get("list", [])
@@ -456,6 +458,11 @@ def task_oggi() -> str:
 @mcp.tool()
 def ordini_in_attesa() -> str:
     """Elenca gli ordini email con stato 'in_attesa' ancora da confermare."""
+    # Verifica che l'entità esista prima di cercare
+    r = requests.get(f"{API_BASE}/OrdineEmail", headers=_headers(),
+                     params={"maxSize": 1}, timeout=10)
+    if r.status_code == 404:
+        return "ℹ️ Entità OrdineEmail non ancora configurata (sarà attiva con il parser email)."
     results = _search("OrdineEmail",
                       [{"type": "equals", "attribute": "stato", "value": "in_attesa"}],
                       select="id,emailDa,emailOggetto,emailData,noteAgente", max_size=20)
