@@ -180,28 +180,128 @@ def aggiorna_cliente(
     return f"✅ Cliente '{account['name']}' aggiornato. Campi modificati: {campi}"
 
 @mcp.tool()
-def cerca_cliente(nome: str) -> str:
-    """Cerca un cliente/account in EspoCRM per nome (ricerca parziale). Restituisce contatti completi."""
+def cerca_account(nome: str) -> str:
+    """
+    Cerca qualsiasi account in EspoCRM per nome (clienti, fornitori, prospect).
+    Restituisce tutti i campi principali.
+    """
     results = _search("Account", [{"type": "contains", "attribute": "name", "value": nome}],
-                      select="id,name,emailAddress,phoneNumber,billingAddressStreet,billingAddressCity,billingAddressPostalCode,zona,tipoAccount,frequenzaVisitaGiorni", max_size=10)
+                      select="id,name,emailAddress,phoneNumber,billingAddressStreet,billingAddressCity,"
+                             "billingAddressState,billingAddressPostalCode,zona,tipoAccount,"
+                             "referente,priorita,condizioniPagamento,frequenzaVisitaGiorni,"
+                             "ultimaVisita,ultimaChiamata,sicCode,website,description",
+                      max_size=10)
     if not results:
-        return f"Nessun cliente trovato con nome '{nome}'."
+        return f"Nessun account trovato con nome '{nome}'."
     lines = []
     for c in results:
-        zona = c.get("zona") or "—"
-        tipo = c.get("tipoAccount") or "cliente"
+        tipo = c.get("tipoAccount") or "—"
         tel = c.get("phoneNumber") or "—"
         email = c.get("emailAddress") or "—"
         via = c.get("billingAddressStreet") or ""
         citta = c.get("billingAddressCity") or ""
+        prov = c.get("billingAddressState") or ""
         cap = c.get("billingAddressPostalCode") or ""
-        indirizzo = ", ".join(filter(None, [via, cap, citta])) or "—"
+        indirizzo = ", ".join(filter(None, [via, cap, citta, prov])) or "—"
+        zona = c.get("zona") or "—"
+        referente = c.get("referente") or "—"
+        piva = c.get("sicCode") or "—"
+        pagamento = c.get("condizioniPagamento") or "—"
+        ultima_visita = c.get("ultimaVisita") or "—"
+        ultima_chiamata = c.get("ultimaChiamata") or "—"
         lines.append(
-            f"• {c['name']}\n"
+            f"• {c['name']} [{tipo}]\n"
             f"  📞 {tel} | ✉️ {email}\n"
-            f"  📍 {indirizzo} | zona: {zona} | tipo: {tipo}"
+            f"  📍 {indirizzo} | zona: {zona}\n"
+            f"  👤 {referente} | P.IVA: {piva}\n"
+            f"  💳 {pagamento}\n"
+            f"  🗓 Ultima visita: {ultima_visita} | Ultima chiamata: {ultima_chiamata}"
         )
     return "\n\n".join(lines)
+
+
+@mcp.tool()
+def lista_fornitori() -> str:
+    """Elenca tutti i fornitori con contatti e categorie prodotti."""
+    results = _search("Account",
+                      [{"type": "equals", "attribute": "tipoAccount", "value": "fornitore"}],
+                      select="id,name,emailAddress,phoneNumber,billingAddressCity,"
+                             "referente,website,sicCode,description",
+                      max_size=50)
+    if not results:
+        return "Nessun fornitore trovato in EspoCRM."
+    lines = [f"🏭 Fornitori ({len(results)}):"]
+    for f in results:
+        tel = f.get("phoneNumber") or "—"
+        email = f.get("emailAddress") or "—"
+        citta = f.get("billingAddressCity") or "—"
+        referente = f.get("referente") or "—"
+        note = f.get("description") or ""
+        lines.append(
+            f"\n• {f['name']}\n"
+            f"  📞 {tel} | ✉️ {email} | 📍 {citta}\n"
+            f"  👤 {referente}"
+            + (f"\n  📝 {note}" if note else "")
+        )
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def dettaglio_account(nome: str) -> str:
+    """
+    Mostra tutti i dettagli di un account: anagrafica completa,
+    sconti configurati, ultima visita e ultima chiamata.
+    """
+    results = _search("Account", [{"type": "contains", "attribute": "name", "value": nome}],
+                      select="id,name,emailAddress,phoneNumber,billingAddressStreet,"
+                             "billingAddressCity,billingAddressState,billingAddressPostalCode,"
+                             "zona,tipoAccount,referente,priorita,condizioniPagamento,"
+                             "frequenzaVisitaGiorni,ultimaVisita,ultimaChiamata,"
+                             "sicCode,codiceFiscale,website,description",
+                      max_size=1)
+    if not results:
+        return f"Account '{nome}' non trovato."
+    c = results[0]
+
+    # Sconti configurati
+    sconti = _search("ScontoCliente",
+                     [{"type": "equals", "attribute": "clienteId", "value": c["id"]}],
+                     select="fornitoreName,categoria,tipoPrezzo,sconto", max_size=20)
+
+    lines = [
+        f"📋 {c['name']} [{c.get('tipoAccount','—')}]",
+        f"",
+        f"📞 Tel: {c.get('phoneNumber') or '—'}",
+        f"✉️  Email: {c.get('emailAddress') or '—'}",
+        f"🌐 Web: {c.get('website') or '—'}",
+        f"📍 {', '.join(filter(None,[c.get('billingAddressStreet',''), c.get('billingAddressPostalCode',''), c.get('billingAddressCity',''), c.get('billingAddressState','')]))}",
+        f"🗺  Zona: {c.get('zona') or '—'}",
+        f"",
+        f"👤 Referente: {c.get('referente') or '—'}",
+        f"🏷  P.IVA: {c.get('sicCode') or '—'}",
+        f"💳 Pagamento: {c.get('condizioniPagamento') or '—'}",
+        f"⭐ Priorità: {c.get('priorita') or '—'}",
+        f"",
+        f"🗓 Ultima visita: {c.get('ultimaVisita') or 'mai'}",
+        f"📞 Ultima chiamata: {c.get('ultimaChiamata') or 'mai'}",
+        f"🔄 Frequenza visita: ogni {c.get('frequenzaVisitaGiorni') or 30} giorni",
+    ]
+
+    if c.get("description"):
+        lines += ["", f"📝 Note: {c['description']}"]
+
+    if sconti:
+        lines += ["", "💰 Contratti prezzi:"]
+        for s in sconti:
+            fornitore = s.get("fornitoreName") or "?"
+            tipo = s.get("tipoPrezzo") or "?"
+            sconto = s.get("sconto") or 0
+            cat = s.get("categoria") or ""
+            cat_str = f" [{cat}]" if cat else ""
+            sconto_str = f" {sconto}%" if tipo == "sconto_percentuale" and sconto else ""
+            lines.append(f"  • {fornitore}{cat_str}: {tipo}{sconto_str}")
+
+    return "\n".join(lines)
 
 
 @mcp.tool()
