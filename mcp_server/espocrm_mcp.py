@@ -68,12 +68,21 @@ def _patch(entity: str, record_id: str, payload: dict) -> dict:
 
 def _search(entity: str, where: list, select: str = "", max_size: int = 50) -> list:
     """Ricerca con filtri WHERE (formato EspoCRM). Ritorna [] se entità non esiste (404)."""
-    params: dict = {"where": json.dumps(where), "maxSize": max_size}
+    # EspoCRM vuole where[0][type]=equals&where[0][attribute]=...&where[0][value]=...
+    params: dict = {"maxSize": max_size}
     if select:
         params["select"] = select
+    for i, condition in enumerate(where):
+        for key, val in condition.items():
+            if key == "value" and isinstance(val, list):
+                for j, v in enumerate(val):
+                    params[f"where[{i}][{key}][{j}]"] = v
+            else:
+                params[f"where[{i}][{key}]"] = val
+
     r = requests.get(f"{API_BASE}/{entity}", headers=_headers(), params=params, timeout=10)
     if r.status_code == 404:
-        return []  # entità non ancora creata — non bloccare
+        return []
     r.raise_for_status()
     data = r.json()
     return data.get("list", [])
