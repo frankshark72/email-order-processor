@@ -90,7 +90,7 @@ def crea_cliente(
     citta: str = "",
     cap: str = "",
     zona: str = "",
-    tipo: str = "cliente",
+    tipo: str = "Cliente",
     frequenza_visita_giorni: int = 30,
     note: str = "",
 ) -> str:
@@ -224,7 +224,7 @@ def cerca_account(nome: str) -> str:
 def lista_fornitori() -> str:
     """Elenca tutti i fornitori con contatti e categorie prodotti."""
     results = _search("Account",
-                      [{"type": "equals", "attribute": "tipoAccount", "value": "fornitore"}],
+                      [{"type": "equals", "attribute": "tipoAccount", "value": "Fornitore"}],
                       select="id,name,emailAddress,phoneNumber,billingAddressCity,"
                              "referente,website,sicCode,description",
                       max_size=50)
@@ -307,7 +307,7 @@ def dettaglio_account(nome: str) -> str:
 @mcp.tool()
 def lista_clienti(zona: Optional[str] = None, tipo: Optional[str] = None, limit: int = 30) -> str:
     """
-    Elenca i clienti. Filtra opzionalmente per zona (es. 'Barese') e/o tipo ('cliente','fornitore').
+    Elenca i clienti. Filtra opzionalmente per zona (es. 'Barese') e/o tipo ('Cliente','Fornitore','Installatore','Rivenditore','Prospect').
     """
     where = []
     if zona:

@@ -136,7 +136,7 @@ def main():
                 "billingAddressPostalCode": (r.get("idcap_1") or "").strip(),
                 "billingAddressCountry":    "Italia",
                 "zona":                     zona_da_provincia(prov),
-                "tipoAccount":              "cliente",
+                "tipoAccount":              "Cliente",
                 "referente":                (r.get("Contatto") or "").strip().title(),
                 "condizioniPagamento":      (r.get("Dspagamento") or "").strip(),
                 "priorita":                 "media",

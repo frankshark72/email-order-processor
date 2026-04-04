@@ -80,7 +80,7 @@ print("="*60)
 
 account_fields = {
     "zona":                 {"type": "varchar", "maxLength": 100},
-    "tipoAccount":          {"type": "enum", "options": ["cliente", "fornitore", "prospect"], "default": "cliente"},
+    "tipoAccount":          {"type": "enum", "options": ["Cliente", "Fornitore", "Prospect", "Installatore", "Rivenditore"], "default": "Cliente"},
     "frequenzaVisitaGiorni":{"type": "int", "default": 30},
     "ultimaVisita":         {"type": "date"},
     "ultimaChiamata":       {"type": "date"},
