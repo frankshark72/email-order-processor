@@ -83,12 +83,12 @@ account_fields = {
     "tipoAccount":          {"type": "enum", "options": ["cliente", "fornitore", "prospect"], "default": "cliente"},
     "frequenzaVisitaGiorni":{"type": "int", "default": 30},
     "ultimaVisita":         {"type": "date"},
+    "ultimaChiamata":       {"type": "date"},
     "referente":            {"type": "varchar", "maxLength": 150},
     "priorita":             {"type": "enum", "options": ["alta", "media", "bassa"], "default": "media"},
     "latitudine":           {"type": "float"},
     "longitudine":          {"type": "float"},
     "condizioniPagamento":  {"type": "varchar", "maxLength": 100},
-    "partitaIva":           {"type": "varchar", "maxLength": 20},
     "codiceFiscale":        {"type": "varchar", "maxLength": 20},
 }
 step("campi Account", merge_fields(f"{CUSTOM_PATH}/entityDefs/Account.json", account_fields))

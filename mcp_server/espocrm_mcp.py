@@ -380,6 +380,7 @@ def registra_chiamata(nome_cliente: str, durata_minuti: int = 5, note: str = "",
         "parentId": account["id"],
     }
     result = _post("Call", payload)
+    _patch("Account", account["id"], {"ultimaChiamata": call_date})
     return f"Chiamata registrata per {account['name']} ({durata_minuti} min) in data {call_date}. ID: {result.get('id', '?')}"
 
 
