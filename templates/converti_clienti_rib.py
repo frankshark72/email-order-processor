@@ -37,10 +37,16 @@ def zona_da_provincia(prov: str) -> str:
     return ZONE.get((prov or "").strip().upper(), "")
 
 def pulisci_tel(tel: str) -> str:
-    """Normalizza numero telefono."""
-    t = (tel or "").strip().replace(" ", "").replace("-", "")
-    if t and not t.startswith("+") and not t.startswith("0"):
-        t = "0" + t
+    """Normalizza numero telefono italiano."""
+    t = (tel or "").strip().replace(" ", "").replace("-", "").replace(".", "")
+    if not t:
+        return ""
+    if t.startswith("+"):
+        return t  # già internazionale
+    if t.startswith("3"):
+        return t  # cellulare italiano (3xx), non aggiungere 0
+    if not t.startswith("0"):
+        return "0" + t  # fisso senza prefisso
     return t
 
 def main():
