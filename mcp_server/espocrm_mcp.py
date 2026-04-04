@@ -595,13 +595,18 @@ def sconti_cliente(nome_cliente: str) -> str:
 
 
 @mcp.tool()
-def aggiungi_sconto(nome_cliente: str, nome_fornitore: str, categoria: str,
-                    sconto: float, valido_dal: str = "", valido_al: str = "",
+def aggiungi_sconto(nome_cliente: str, nome_fornitore: str,
+                    tipo_prezzo: str = "netto_rivenditore",
+                    sconto: float = 0.0,
+                    categoria: str = "",
+                    valido_dal: str = "", valido_al: str = "",
                     note: str = "") -> str:
     """
-    Aggiunge o aggiorna uno sconto per un cliente su un fornitore e categoria.
-    sconto: percentuale (es. 15.0 per 15%)
-    valido_dal / valido_al: formato YYYY-MM-DD (opzionali)
+    Configura il contratto prezzi per un cliente su un fornitore.
+    tipo_prezzo: 'sconto_percentuale' | 'netto_rivenditore' | 'netto_installatore'
+    sconto: percentuale (es. 20.0) — solo se tipo_prezzo=sconto_percentuale
+    categoria: opzionale, per contratti specifici per categoria
+    Il sistema ricorderà questa scelta per i calcoli futuri.
     """
     accounts_c = _search("Account", [{"type": "contains", "attribute": "name", "value": nome_cliente}],
                          select="id,name", max_size=1)
@@ -615,13 +620,16 @@ def aggiungi_sconto(nome_cliente: str, nome_fornitore: str, categoria: str,
     cliente = accounts_c[0]
     fornitore = accounts_f[0]
 
+    label = " – ".join(filter(None, [cliente["name"], fornitore["name"], categoria]))
     payload: dict = {
-        "name": f"{cliente['name']} – {fornitore['name']} – {categoria}",
+        "name": label,
         "clienteId": cliente["id"],
         "fornitoreId": fornitore["id"],
-        "categoria": categoria,
+        "tipoPrezzo": tipo_prezzo,
         "sconto": sconto,
     }
+    if categoria:
+        payload["categoria"] = categoria
     if valido_dal:
         payload["validoDal"] = valido_dal
     if valido_al:
@@ -629,16 +637,22 @@ def aggiungi_sconto(nome_cliente: str, nome_fornitore: str, categoria: str,
     if note:
         payload["note"] = note
 
-    result = _post("ScontoCliente", payload)
-    return (f"✅ Sconto aggiunto:\n"
-            f"   {cliente['name']} | {fornitore['name']} | {categoria} → {sconto}%")
+    _post("ScontoCliente", payload)
+    sconto_str = f" ({sconto}%)" if tipo_prezzo == "sconto_percentuale" and sconto else ""
+    cat_str = f" | cat: {categoria}" if categoria else ""
+    return (f"✅ Contratto salvato:\n"
+            f"   {cliente['name']} | {fornitore['name']}{cat_str}\n"
+            f"   Tipo prezzo: {tipo_prezzo}{sconto_str}\n"
+            f"   Verrà usato automaticamente nei calcoli futuri.")
 
 
 @mcp.tool()
 def calcola_prezzo(nome_prodotto: str, quantita: int, nome_cliente: str = "") -> str:
     """
-    Calcola il prezzo netto per un prodotto con la quantità indicata,
-    applicando lo sconto del cliente se specificato.
+    Calcola il prezzo netto per un prodotto con la quantità indicata.
+    Se specificato il cliente, usa il tipo prezzo e sconto configurati in ScontoCliente
+    (sconto_percentuale / netto_rivenditore / netto_installatore).
+    Ricorda automaticamente la scelta fatta per ogni cliente+fornitore.
     """
     # Trova prodotto
     prodotti = _search("Prodotto",
@@ -648,11 +662,50 @@ def calcola_prezzo(nome_prodotto: str, quantita: int, nome_cliente: str = "") ->
     if not prodotti:
         return f"Prodotto '{nome_prodotto}' non trovato."
     prodotto = prodotti[0]
+    fornitore_id = prodotto.get("fornitoreId") or ""
+    fornitore_nome = prodotto.get("fornitoreName") or ""
+    um = prodotto.get("unitaMisura") or "pz"
 
-    # Trova prezzo da RigaListino (scaglione più alto ≤ quantita)
-    righe = _search("RigaListino",
-                    [{"type": "equals", "attribute": "prodottoId", "value": prodotto["id"]}],
-                    select="quantitaMinima,prezzoNetto,listinoName",
+    # Determina tipo prezzo e sconto dal contratto cliente
+    tipo_prezzo = "netto_rivenditore"  # default
+    sconto_pct = 0.0
+    contratto_info = ""
+    tipo_cliente = "rivenditore"
+
+    if nome_cliente:
+        accounts = _search("Account",
+                           [{"type": "contains", "attribute": "name", "value": nome_cliente}],
+                           select="id,name", max_size=1)
+        if accounts:
+            cliente = accounts[0]
+            sconti = _search("ScontoCliente",
+                             [{"type": "equals", "attribute": "clienteId", "value": cliente["id"]},
+                              {"type": "equals", "attribute": "fornitoreId", "value": fornitore_id}],
+                             select="tipoPrezzo,sconto,categoria,note", max_size=10)
+            if sconti:
+                # Usa il contratto più specifico (con categoria) se disponibile
+                categoria = prodotto.get("categoria") or ""
+                contratto = next(
+                    (s for s in sconti if (s.get("categoria") or "").lower() == categoria.lower()),
+                    sconti[0]
+                )
+                tipo_prezzo = contratto.get("tipoPrezzo") or "netto_rivenditore"
+                sconto_pct = float(contratto.get("sconto") or 0)
+                note_contratto = contratto.get("note") or ""
+                contratto_info = f"   📋 Contratto: {tipo_prezzo}"
+                if note_contratto:
+                    contratto_info += f" — {note_contratto}"
+                tipo_cliente = "installatore" if tipo_prezzo == "netto_installatore" else "rivenditore"
+            else:
+                contratto_info = f"   ⚠️ Nessun contratto trovato per {nome_cliente} / {fornitore_nome}"
+
+    # Trova prezzo da RigaListino filtrando per tipoCliente
+    where_righe = [{"type": "equals", "attribute": "prodottoId", "value": prodotto["id"]}]
+    if tipo_prezzo in ("netto_rivenditore", "netto_installatore"):
+        where_righe.append({"type": "equals", "attribute": "tipoCliente", "value": tipo_cliente})
+
+    righe = _search("RigaListino", where_righe,
+                    select="tipoCliente,quantitaMinima,prezzoNetto,listinoName",
                     max_size=20)
 
     prezzo_base = None
@@ -666,46 +719,31 @@ def calcola_prezzo(nome_prodotto: str, quantita: int, nome_cliente: str = "") ->
             break
 
     if prezzo_base is None:
-        return (f"Nessun prezzo trovato per '{prodotto['name']}' "
-                f"(qtà {quantita}). Verifica le righe listino.")
+        # Mostra gli scaglioni disponibili per aiutare
+        tutti = _search("RigaListino",
+                        [{"type": "equals", "attribute": "prodottoId", "value": prodotto["id"]}],
+                        select="tipoCliente,quantitaMinima,prezzoNetto", max_size=20)
+        if tutti:
+            scaglioni = "\n".join(
+                f"   {r.get('tipoCliente','?')} qtà≥{r.get('quantitaMinima','?')}: €{r.get('prezzoNetto','?')}"
+                for r in sorted(tutti, key=lambda x: (x.get("tipoCliente",""), x.get("quantitaMinima", 0)))
+            )
+            return f"Nessun prezzo {tipo_cliente} per qtà {quantita}.\nScaglioni disponibili:\n{scaglioni}"
+        return f"Nessun prezzo trovato per '{prodotto['name']}'. Verifica le righe listino."
 
-    # Applica sconto cliente se richiesto
-    sconto_pct = 0.0
-    sconto_info = ""
-    if nome_cliente:
-        accounts = _search("Account",
-                           [{"type": "contains", "attribute": "name", "value": nome_cliente}],
-                           select="id,name", max_size=1)
-        if accounts:
-            cliente = accounts[0]
-            categoria = prodotto.get("categoria") or ""
-            fornitore_id = prodotto.get("fornitoreId") or ""
-
-            # Cerca sconto specifico per categoria
-            sconti = _search("ScontoCliente",
-                             [{"type": "equals", "attribute": "clienteId", "value": cliente["id"]},
-                              {"type": "equals", "attribute": "fornitoreId", "value": fornitore_id}],
-                             select="categoria,sconto", max_size=10)
-
-            for s in sconti:
-                cat = (s.get("categoria") or "").lower()
-                if cat == categoria.lower() or cat == "" or cat == "tutte":
-                    sconto_pct = float(s.get("sconto") or 0)
-                    sconto_info = f" (sconto {sconto_pct}% cat. {categoria})"
-                    break
-
-    prezzo_scontato = prezzo_base * (1 - sconto_pct / 100)
-    totale = prezzo_scontato * quantita
-    um = prodotto.get("unitaMisura") or "pz"
+    prezzo_finale = prezzo_base * (1 - sconto_pct / 100) if tipo_prezzo == "sconto_percentuale" else prezzo_base
+    totale = prezzo_finale * quantita
 
     lines = [
         f"📦 {prodotto['name']} × {quantita} {um}",
-        f"   Listino: {listino_nome} (da qtà {scaglione_usato})",
-        f"   Prezzo base: €{prezzo_base:.4f}/{um}",
+        f"   Fornitore: {fornitore_nome}",
+        f"   Listino: {listino_nome} ({tipo_cliente}, da qtà {scaglione_usato})",
+        f"   Prezzo {tipo_prezzo}: €{prezzo_base:.4f}/{um}",
     ]
-    if sconto_pct:
-        lines.append(f"   Sconto{sconto_info}: -{sconto_pct}%")
-        lines.append(f"   Prezzo netto: €{prezzo_scontato:.4f}/{um}")
+    if contratto_info:
+        lines.append(contratto_info)
+    if tipo_prezzo == "sconto_percentuale" and sconto_pct:
+        lines.append(f"   Sconto: -{sconto_pct}%  → €{prezzo_finale:.4f}/{um}")
     lines.append(f"   💰 Totale: €{totale:.2f}")
     return "\n".join(lines)
 

@@ -148,6 +148,9 @@ sconto_defs = {
     "fields": {
         "name":         {"type": "varchar", "required": True},
         "categoria":    {"type": "varchar", "maxLength": 100},
+        "tipoPrezzo":   {"type": "enum",
+                         "options": ["sconto_percentuale", "netto_rivenditore", "netto_installatore"],
+                         "default": "sconto_percentuale"},
         "sconto":       {"type": "float"},
         "validoDal":    {"type": "date"},
         "validoAl":     {"type": "date"},
@@ -185,6 +188,9 @@ riga_scope = {
 riga_defs = {
     "fields": {
         "name":           {"type": "varchar", "required": True},
+        "tipoCliente":    {"type": "enum",
+                           "options": ["rivenditore", "installatore"],
+                           "default": "rivenditore"},
         "quantitaMinima": {"type": "int", "default": 1},
         "prezzoNetto":    {"type": "currency"},
         "note":           {"type": "text"},
