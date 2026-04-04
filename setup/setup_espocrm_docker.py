@@ -88,6 +88,8 @@ account_fields = {
     "latitudine":           {"type": "float"},
     "longitudine":          {"type": "float"},
     "condizioniPagamento":  {"type": "varchar", "maxLength": 100},
+    "partitaIva":           {"type": "varchar", "maxLength": 20},
+    "codiceFiscale":        {"type": "varchar", "maxLength": 20},
 }
 step("campi Account", merge_fields(f"{CUSTOM_PATH}/entityDefs/Account.json", account_fields))
 

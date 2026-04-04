@@ -80,7 +80,7 @@ def main():
         "billingAddressCountry",
         "zona", "tipoAccount", "referente",
         "condizioniPagamento", "priorita",
-        "frequenzaVisitaGiorni", "description",
+        "frequenzaVisitaGiorni", "partitaIva", "description",
     ]
 
     scritti = 0
@@ -107,8 +107,6 @@ def main():
             note_parts = []
             if id_conto:
                 note_parts.append(f"Codice conto: {id_conto}")
-            if piva:
-                note_parts.append(f"P.IVA: {piva}")
             if tel_fisso and tel_cell:
                 note_parts.append(f"Tel fisso: {tel_fisso}")
 
@@ -129,6 +127,7 @@ def main():
                 "condizioniPagamento":      (r.get("Dspagamento") or "").strip(),
                 "priorita":                 "media",
                 "frequenzaVisitaGiorni":    "30",
+                "partitaIva":               piva,
                 "description":             " | ".join(note_parts),
             })
             scritti += 1
