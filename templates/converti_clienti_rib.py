@@ -102,10 +102,18 @@ def main():
                 saltati += 1
                 continue
 
-            # Telefono: preferisci cellulare se disponibile
+            # Telefono: costruisce lista JSON per EspoCRM
             tel_fisso = pulisci_tel(r.get("Telefono1") or "")
             tel_cell  = pulisci_tel(r.get("Telcellulare") or "")
-            telefono  = tel_cell if tel_cell else tel_fisso
+
+            tel_list = []
+            if tel_cell:
+                tel_list.append({"value": tel_cell, "type": "mobile", "primary": True})
+            if tel_fisso:
+                tel_list.append({"value": tel_fisso, "type": "office", "primary": not bool(tel_cell)})
+
+            import json as _json
+            telefono = _json.dumps(tel_list) if tel_list else ""
 
             # Note: metti partita IVA e codice conto nelle note
             id_conto = (r.get("IdConto") or "").strip()
