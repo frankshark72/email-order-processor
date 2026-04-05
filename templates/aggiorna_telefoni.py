@@ -67,8 +67,10 @@ def aggiorna_telefono(account_id: str, tel_cell: str, tel_fisso: str) -> bool:
 
     r = requests.patch(f"{API_BASE}/Account/{account_id}",
                        headers=HEADERS,
-                       json={"phoneNumber": numeri},
+                       json={"phoneNumberData": numeri},
                        timeout=10)
+    if not r.ok:
+        print(f"    HTTP {r.status_code}: {r.text[:200]}")
     return r.ok
 
 
