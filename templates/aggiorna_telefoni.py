@@ -102,17 +102,28 @@ def main():
     senza_tel = 0
 
     for i, r in enumerate(righe):
-        nome = (r.get("RagioneSociale") or "").strip()
+        nome = (r.get("name") or r.get("RagioneSociale") or "").strip()
         if not nome:
             skip += 1
             continue
 
-        tel_fisso = pulisci_tel(r.get("Telefono1") or "")
-        tel_cell  = pulisci_tel(r.get("Telcellulare") or "")
-
-        if not tel_fisso and not tel_cell:
+        # Leggi phoneNumber (può essere JSON array o stringa semplice)
+        tel_raw = (r.get("phoneNumber") or "").strip()
+        if not tel_raw:
             senza_tel += 1
             continue
+
+        try:
+            numeri = json.loads(tel_raw)
+            if not isinstance(numeri, list):
+                numeri = [{"value": pulisci_tel(tel_raw), "type": "mobile", "primary": True}]
+        except (json.JSONDecodeError, ValueError):
+            t = pulisci_tel(tel_raw)
+            if not t:
+                senza_tel += 1
+                continue
+            tipo = "mobile" if t.startswith("3") else "office"
+            numeri = [{"value": t, "type": tipo, "primary": True}]
 
         # Cerca account in EspoCRM
         account_id = cerca_account(nome)
@@ -122,11 +133,16 @@ def main():
             continue
 
         # Aggiorna telefono
-        if aggiorna_telefono(account_id, tel_cell, tel_fisso):
-            print(f"  ✅ {nome} | cell: {tel_cell or '—'} | fisso: {tel_fisso or '—'}")
+        r2 = requests.patch(f"{API_BASE}/Account/{account_id}",
+                            headers=HEADERS,
+                            json={"phoneNumberData": numeri},
+                            timeout=10)
+        if r2.ok:
+            vals = " | ".join(n["value"] for n in numeri)
+            print(f"  ✅ {nome} | {vals}")
             ok += 1
         else:
-            print(f"  ❌ Errore aggiornamento: {nome}")
+            print(f"  ❌ {nome} — HTTP {r2.status_code}: {r2.text[:150]}")
             skip += 1
 
         # Pausa per non sovraccaricare EspoCRM
