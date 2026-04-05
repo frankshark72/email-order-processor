@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Aggiorna i numeri di telefono degli account già importati in EspoCRM.
+Aggiorna i numeri di telefono degli account gia importati in EspoCRM.
 Legge il CSV originale e aggiorna solo il campo phoneNumber.
 
-Uso:
-  export ESPOCRM_URL=http://100.79.250.23:8080
-  export ESPOCRM_API_KEY=42f83e62ee977187aa76d2e701bb6fcc
-  python3 templates/aggiorna_telefoni.py C:\percorso\clienti_rib.csv
+Uso su Windows CMD:
+  set ESPOCRM_URL=http://100.79.250.23:8080
+  set ESPOCRM_API_KEY=42f83e62ee977187aa76d2e701bb6fcc
+  python templates\\aggiorna_telefoni.py percorso\\clienti_rib.csv
 
-  oppure su VPS:
+Uso su Linux/VPS:
   python3 templates/aggiorna_telefoni.py /percorso/clienti_rib.csv
 """
 
