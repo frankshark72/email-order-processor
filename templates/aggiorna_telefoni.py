@@ -93,6 +93,8 @@ def main():
                 break
 
     print(f"Righe da processare: {len(righe)}")
+    if righe:
+        print(f"Colonne trovate: {list(righe[0].keys())}")
 
     ok = 0
     skip = 0
