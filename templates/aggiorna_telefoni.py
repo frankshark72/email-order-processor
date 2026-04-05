@@ -114,16 +114,29 @@ def main():
             continue
 
         try:
-            numeri = json.loads(tel_raw)
-            if not isinstance(numeri, list):
-                numeri = [{"value": pulisci_tel(tel_raw), "type": "mobile", "primary": True}]
+            parsed = json.loads(tel_raw)
+            if not isinstance(parsed, list):
+                parsed = [{"value": pulisci_tel(tel_raw), "type": "mobile", "primary": True}]
         except (json.JSONDecodeError, ValueError):
             t = pulisci_tel(tel_raw)
             if not t:
                 senza_tel += 1
                 continue
             tipo = "mobile" if t.startswith("3") else "office"
-            numeri = [{"value": t, "type": tipo, "primary": True}]
+            parsed = [{"value": t, "type": tipo, "primary": True}]
+
+        # EspoCRM usa "phoneNumber" (non "value") e tipo capitalizzato
+        tipo_map = {"mobile": "Mobile", "office": "Office", "home": "Home", "other": "Other"}
+        numeri = []
+        for n in parsed:
+            v = n.get("value") or n.get("phoneNumber") or ""
+            v = pulisci_tel(v)
+            if not v:
+                continue
+            if not v.startswith("+"):
+                v = "+39" + v
+            tipo = tipo_map.get((n.get("type") or "office").lower(), "Office")
+            numeri.append({"phoneNumber": v, "type": tipo, "primary": n.get("primary", False), "optOut": False, "invalid": False})
 
         # Cerca account in EspoCRM
         account_id = cerca_account(nome)
@@ -132,21 +145,15 @@ def main():
             non_trovati += 1
             continue
 
-        # Converti numeri in formato internazionale +39
-        for n in numeri:
-            v = n["value"]
-            if not v.startswith("+"):
-                n["value"] = "+39" + v
-
         # Aggiorna telefono
-        primary = next((n["value"] for n in numeri if n.get("primary")), numeri[0]["value"])
+        primary = next((n["phoneNumber"] for n in numeri if n.get("primary")), numeri[0]["phoneNumber"])
         payload = {"phoneNumber": primary, "phoneNumberData": numeri}
         r2 = requests.patch(f"{API_BASE}/Account/{account_id}",
                             headers=HEADERS,
                             json=payload,
                             timeout=10)
         if r2.ok:
-            vals = " | ".join(n["value"] for n in numeri)
+            vals = " | ".join(n["phoneNumber"] for n in numeri)
             print(f"  ✅ {nome} | {vals}")
             ok += 1
         else:
