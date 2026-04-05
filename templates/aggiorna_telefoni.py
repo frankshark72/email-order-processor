@@ -132,12 +132,18 @@ def main():
             non_trovati += 1
             continue
 
+        # Converti numeri in formato internazionale +39
+        for n in numeri:
+            v = n["value"]
+            if not v.startswith("+"):
+                n["value"] = "+39" + v
+
         # Aggiorna telefono
-        if ok + skip + non_trovati < 2:
-            print(f"    DEBUG numeri: {numeri}")
+        primary = next((n["value"] for n in numeri if n.get("primary")), numeri[0]["value"])
+        payload = {"phoneNumber": primary, "phoneNumberData": numeri}
         r2 = requests.patch(f"{API_BASE}/Account/{account_id}",
                             headers=HEADERS,
-                            json={"phoneNumberData": numeri},
+                            json=payload,
                             timeout=10)
         if r2.ok:
             vals = " | ".join(n["value"] for n in numeri)
