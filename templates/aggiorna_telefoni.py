@@ -133,6 +133,8 @@ def main():
             continue
 
         # Aggiorna telefono
+        if ok + skip + non_trovati < 2:
+            print(f"    DEBUG numeri: {numeri}")
         r2 = requests.patch(f"{API_BASE}/Account/{account_id}",
                             headers=HEADERS,
                             json={"phoneNumberData": numeri},
