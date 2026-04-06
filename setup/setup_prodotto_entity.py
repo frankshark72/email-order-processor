@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Crea/completa l'entità Prodotto in EspoCRM con tutti i campi
-necessari per il listino Elmo (e altri fornitori).
+Crea l'entità Prodotto in EspoCRM con tutti i campi necessari
+per gestire i listini di tutti i fornitori (Elmo, Prospecta, 4Power, RIB, Ermes).
 
 Esegui sulla VM:
   python3 setup/setup_prodotto_entity.py
@@ -73,7 +73,7 @@ prodotto_scope = {
 step("scope Prodotto", write_json(f"{CUSTOM_PATH}/scopes/Prodotto.json", prodotto_scope))
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2. EntityDefs Prodotto
+# 2. EntityDefs Prodotto — campi definitivi per tutti i fornitori
 # ─────────────────────────────────────────────────────────────────────────────
 print("\n" + "="*60)
 print("2. ENTITYDEFS PRODOTTO")
@@ -81,6 +81,7 @@ print("="*60)
 
 prodotto_defs = {
     "fields": {
+        # ── Campi comuni ─────────────────────────────────────────────────────
         "name": {
             "type": "varchar",
             "maxLength": 255,
@@ -88,27 +89,40 @@ prodotto_defs = {
         },
         "codice": {
             "type": "varchar",
-            "maxLength": 50
-        },
-        "codiceAlfanumerico": {
-            "type": "varchar",
-            "maxLength": 50
+            "maxLength": 60
         },
         "categoria": {
-            "type": "enum",
-            "options": ["Intrusione", "Antincendio", "TVCC", "Controllo Accessi", "Altro"],
-            "default": "Altro"
-        },
-        "disponibilita": {
             "type": "varchar",
-            "maxLength": 200
+            "maxLength": 100
+        },
+        "descrizioneEstesa": {
+            "type": "text"
         },
         "prezzoListino": {
-            "type": "currency"
+            "type": "float"
         },
         "prezzoSuRichiesta": {
             "type": "bool",
             "default": False
+        },
+        "unitaMisura": {
+            "type": "enum",
+            "options": ["pz", "mt", "km", "conf", "N", "altro"],
+            "default": "pz"
+        },
+        "attivo": {
+            "type": "bool",
+            "default": True
+        },
+
+        # ── Campi Elmo ───────────────────────────────────────────────────────
+        "codiceAlfanumerico": {
+            "type": "varchar",
+            "maxLength": 60
+        },
+        "disponibilita": {
+            "type": "varchar",
+            "maxLength": 200
         },
         "codiceRiparazione": {
             "type": "varchar",
@@ -118,13 +132,22 @@ prodotto_defs = {
             "type": "varchar",
             "maxLength": 20
         },
-        "attivo": {
-            "type": "bool",
-            "default": True
+
+        # ── Campi Prospecta (cavi) ────────────────────────────────────────────
+        "classeCPR": {
+            "type": "varchar",
+            "maxLength": 50
         },
-        "note": {
-            "type": "text"
+        "dop": {
+            "type": "varchar",
+            "maxLength": 50
         },
+        "confGestite": {
+            "type": "varchar",
+            "maxLength": 100
+        },
+
+        # ── Link fornitore ────────────────────────────────────────────────────
         "fornitoreId": {
             "type": "foreignId"
         },
@@ -153,7 +176,7 @@ prodotto_defs = {
 step("entityDefs Prodotto", write_json(f"{CUSTOM_PATH}/entityDefs/Prodotto.json", prodotto_defs))
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3. Aggiungi link prodotti su Account
+# 3. Link prodotti su Account
 # ─────────────────────────────────────────────────────────────────────────────
 print("\n" + "="*60)
 print("3. LINK PRODOTTI SU ACCOUNT")
