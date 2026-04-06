@@ -64,6 +64,7 @@ prodotto_scope = {
     "entity": True,
     "object": True,
     "tab": True,
+    "acl": True,
     "type": "Base",
     "module": "Custom",
     "stream": False,
