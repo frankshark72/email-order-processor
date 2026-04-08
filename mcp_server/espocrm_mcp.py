@@ -858,6 +858,103 @@ def calcola_prezzo(nome_prodotto: str, quantita: int, nome_cliente: str = "") ->
     return "\n".join(lines)
 
 
+# ── Tool: prodotti ────────────────────────────────────────────────────────────
+
+@mcp.tool()
+def cerca_prodotti(
+    testo: str = "",
+    categoria: str = "",
+    fornitore: str = "",
+    solo_attivi: bool = True,
+    limit: int = 30,
+) -> str:
+    """
+    Cerca prodotti nel catalogo EspoCRM per testo libero, categoria o fornitore.
+    testo: cerca in nome, codice e descrizione (es. 'doppia tecnologia esterno')
+    categoria: filtra per categoria (es. 'Rivelatori', 'Centrali', 'Telecamere')
+    fornitore: filtra per nome fornitore (es. 'Elmo', 'RIB', 'Prospecta')
+    solo_attivi: se True mostra solo prodotti attivi (default True)
+    """
+    where = []
+
+    if testo:
+        # OR su nome, codice e descrizione
+        where.append({
+            "type": "or",
+            "value": [
+                {"type": "contains", "attribute": "name", "value": testo},
+                {"type": "contains", "attribute": "codice", "value": testo},
+                {"type": "contains", "attribute": "descrizioneEstesa", "value": testo},
+            ]
+        })
+
+    if categoria:
+        where.append({"type": "contains", "attribute": "categoria", "value": categoria})
+
+    if fornitore:
+        where.append({"type": "contains", "attribute": "fornitoreName", "value": fornitore})
+
+    if solo_attivi:
+        where.append({"type": "isTrue", "attribute": "attivo"})
+
+    if not where:
+        where.append({"type": "isTrue", "attribute": "attivo"})
+
+    prodotti = _search(
+        "Prodotto", where,
+        select="name,codice,categoria,descrizioneEstesa,prezzoListino,unitaMisura,fornitoreName,attivo",
+        max_size=limit,
+    )
+
+    if not prodotti:
+        filtri = []
+        if testo:
+            filtri.append(f"testo='{testo}'")
+        if categoria:
+            filtri.append(f"categoria='{categoria}'")
+        if fornitore:
+            filtri.append(f"fornitore='{fornitore}'")
+        return f"Nessun prodotto trovato con filtri: {', '.join(filtri) or 'nessuno'}."
+
+    righe = [f"📦 Trovati {len(prodotti)} prodotti:\n"]
+    for p in prodotti:
+        prezzo = p.get("prezzoListino")
+        prezzo_str = f"€{float(prezzo):.2f}" if prezzo else "su richiesta"
+        um = p.get("unitaMisura") or "pz"
+        fornitore_nome = p.get("fornitoreName") or "—"
+        categoria_nome = p.get("categoria") or "—"
+        descr = p.get("descrizioneEstesa") or ""
+        descr_breve = descr[:80] + "..." if len(descr) > 80 else descr
+
+        righe.append(
+            f"• [{p.get('codice','—')}] {p['name']}\n"
+            f"  Fornitore: {fornitore_nome} | Cat: {categoria_nome} | {prezzo_str}/{um}"
+        )
+        if descr_breve:
+            righe.append(f"  {descr_breve}")
+
+    return "\n".join(righe)
+
+
+@mcp.tool()
+def lista_categorie_prodotti() -> str:
+    """Elenca tutte le categorie di prodotti presenti nel catalogo con il conteggio."""
+    prodotti = _search("Prodotto", [{"type": "isTrue", "attribute": "attivo"}],
+                       select="categoria", max_size=5000)
+    conteggio: dict = {}
+    for p in prodotti:
+        cat = p.get("categoria") or "Senza categoria"
+        conteggio[cat] = conteggio.get(cat, 0) + 1
+
+    if not conteggio:
+        return "Nessun prodotto nel catalogo."
+
+    righe = ["📂 Categorie prodotti:\n"]
+    for cat, n in sorted(conteggio.items(), key=lambda x: -x[1]):
+        righe.append(f"  • {cat}: {n} prodotti")
+    return "\n".join(righe)
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
