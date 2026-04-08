@@ -275,7 +275,7 @@ def dettaglio_account(nome: str) -> str:
     # Sconti configurati
     sconti = _search("ScontoCliente",
                      [{"type": "equals", "attribute": "clienteId", "value": c["id"]}],
-                     select="fornitoreName,categoria,tipoPrezzo,sconto", max_size=20)
+                     select="accountName,categoria,tipoPrezzo,sconto", max_size=20)
 
     lines = [
         f"📋 {c['name']} [{c.get('tipoAccount','—')}]",
@@ -302,7 +302,7 @@ def dettaglio_account(nome: str) -> str:
     if sconti:
         lines += ["", "💰 Contratti prezzi:"]
         for s in sconti:
-            fornitore = s.get("fornitoreName") or "?"
+            fornitore = s.get("accountName") or "?"
             tipo = s.get("tipoPrezzo") or "?"
             sconto = s.get("sconto") or 0
             cat = s.get("categoria") or ""
@@ -687,14 +687,14 @@ def sconti_cliente(nome_cliente: str) -> str:
 
     sconti = _search("ScontoCliente",
                      [{"type": "equals", "attribute": "clienteId", "value": account["id"]}],
-                     select="fornitore,fornitoreName,categoria,sconto,validoDal,validoAl,note",
+                     select="fornitore,accountName,categoria,sconto,validoDal,validoAl,note",
                      max_size=50)
     if not sconti:
         return f"Nessuno sconto configurato per {account['name']}."
 
     lines = [f"💰 Sconti di {account['name']}:"]
     for s in sconti:
-        fornitore = s.get("fornitoreName") or "?"
+        fornitore = s.get("accountName") or "?"
         categoria = s.get("categoria") or "tutte"
         sconto = s.get("sconto") or 0
         val_dal = s.get("validoDal") or ""
@@ -734,7 +734,7 @@ def aggiungi_sconto(nome_cliente: str, nome_fornitore: str,
     payload: dict = {
         "name": label,
         "clienteId": cliente["id"],
-        "fornitoreId": fornitore["id"],
+        "accountId": fornitore["id"],
         "tipoPrezzo": tipo_prezzo,
         "sconto": sconto,
     }
@@ -767,13 +767,13 @@ def calcola_prezzo(nome_prodotto: str, quantita: int, nome_cliente: str = "") ->
     # Trova prodotto
     prodotti = _search("CProdotto",
                        [{"type": "contains", "attribute": "name", "value": nome_prodotto}],
-                       select="id,name,categoria,fornitoreName,fornitoreId,unitaMisura",
+                       select="id,name,categoria,accountName,accountId,unitaMisura",
                        max_size=1)
     if not prodotti:
         return f"Prodotto '{nome_prodotto}' non trovato."
     prodotto = prodotti[0]
-    fornitore_id = prodotto.get("fornitoreId") or ""
-    fornitore_nome = prodotto.get("fornitoreName") or ""
+    fornitore_id = prodotto.get("accountId") or ""
+    fornitore_nome = prodotto.get("accountName") or ""
     um = prodotto.get("unitaMisura") or "pz"
 
     # Determina tipo prezzo e sconto dal contratto cliente
@@ -790,7 +790,7 @@ def calcola_prezzo(nome_prodotto: str, quantita: int, nome_cliente: str = "") ->
             cliente = accounts[0]
             sconti = _search("ScontoCliente",
                              [{"type": "equals", "attribute": "clienteId", "value": cliente["id"]},
-                              {"type": "equals", "attribute": "fornitoreId", "value": fornitore_id}],
+                              {"type": "equals", "attribute": "accountId", "value": fornitore_id}],
                              select="tipoPrezzo,sconto,categoria,note", max_size=10)
             if sconti:
                 # Usa il contratto più specifico (con categoria) se disponibile
@@ -892,7 +892,7 @@ def cerca_prodotti(
         where.append({"type": "contains", "attribute": "categoria", "value": categoria})
 
     if fornitore:
-        where.append({"type": "contains", "attribute": "fornitoreName", "value": fornitore})
+        where.append({"type": "contains", "attribute": "accountName", "value": fornitore})
 
     if solo_attivi:
         where.append({"type": "isTrue", "attribute": "attivo"})
@@ -902,7 +902,7 @@ def cerca_prodotti(
 
     prodotti = _search(
         "CProdotto", where,
-        select="name,codice,categoria,descrizioneEstesa,prezzoListino,unitaMisura,fornitoreName,attivo",
+        select="name,codice,categoria,descrizioneEstesa,prezzoListino,unitaMisura,accountName,attivo",
         max_size=limit,
     )
 
@@ -921,7 +921,7 @@ def cerca_prodotti(
         prezzo = p.get("prezzoListino")
         prezzo_str = f"€{float(prezzo):.2f}" if prezzo else "su richiesta"
         um = p.get("unitaMisura") or "pz"
-        fornitore_nome = p.get("fornitoreName") or "—"
+        fornitore_nome = p.get("accountName") or "—"
         categoria_nome = p.get("categoria") or "—"
         descr = p.get("descrizioneEstesa") or ""
         descr_breve = descr[:80] + "..." if len(descr) > 80 else descr
