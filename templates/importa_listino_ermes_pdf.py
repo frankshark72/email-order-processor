@@ -211,7 +211,7 @@ def main():
             "descrizioneEstesa":  p.get("descrizioneEstesa", ""),
             "unitaMisura":        "pz",
             "attivo":             True,
-            "fornitoreId":        fornitore_id,
+            "accountId":        fornitore_id,
         }
         if p.get("prezzo") is not None:
             payload["prezzoListino"] = p["prezzo"]

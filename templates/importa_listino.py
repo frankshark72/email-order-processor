@@ -178,7 +178,7 @@ def importa_elmo(wb: openpyxl.Workbook, fornitore_id: str) -> dict:
                 "prezzoSuRichiesta":   prezzo_su_richiesta,
                 "unitaMisura":         "pz",
                 "attivo":              True,
-                "fornitoreId":         fornitore_id,
+                "accountId":         fornitore_id,
             }
             if prezzo is not None:
                 payload["prezzoListino"] = prezzo
@@ -265,7 +265,7 @@ def importa_prospecta(wb: openpyxl.Workbook, fornitore_id: str) -> dict:
                 "confGestite": ",".join(conf_presenti) if conf_presenti else "",
                 "unitaMisura": "km",
                 "attivo":      True,
-                "fornitoreId": fornitore_id,
+                "accountId": fornitore_id,
             }
             if prezzo is not None:
                 payload["prezzoListino"] = prezzo
@@ -354,7 +354,7 @@ def importa_generico(wb: openpyxl.Workbook, fornitore_id: str,
                 "descrizioneEstesa":  desc_estesa,
                 "unitaMisura":        um,
                 "attivo":             True,
-                "fornitoreId":        fornitore_id,
+                "accountId":        fornitore_id,
             }
             if prezzo is not None:
                 payload["prezzoListino"] = prezzo
