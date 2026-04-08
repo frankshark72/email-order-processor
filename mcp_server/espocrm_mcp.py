@@ -765,7 +765,7 @@ def calcola_prezzo(nome_prodotto: str, quantita: int, nome_cliente: str = "") ->
     Ricorda automaticamente la scelta fatta per ogni cliente+fornitore.
     """
     # Trova prodotto
-    prodotti = _search("Prodotto",
+    prodotti = _search("CProdotto",
                        [{"type": "contains", "attribute": "name", "value": nome_prodotto}],
                        select="id,name,categoria,fornitoreName,fornitoreId,unitaMisura",
                        max_size=1)
@@ -901,7 +901,7 @@ def cerca_prodotti(
         where.append({"type": "isTrue", "attribute": "attivo"})
 
     prodotti = _search(
-        "Prodotto", where,
+        "CProdotto", where,
         select="name,codice,categoria,descrizioneEstesa,prezzoListino,unitaMisura,fornitoreName,attivo",
         max_size=limit,
     )
@@ -939,7 +939,7 @@ def cerca_prodotti(
 @mcp.tool()
 def lista_categorie_prodotti() -> str:
     """Elenca tutte le categorie di prodotti presenti nel catalogo con il conteggio."""
-    prodotti = _search("Prodotto", [{"type": "isTrue", "attribute": "attivo"}],
+    prodotti = _search("CProdotto", [{"type": "isTrue", "attribute": "attivo"}],
                        select="categoria", max_size=5000)
     conteggio: dict = {}
     for p in prodotti:

@@ -42,7 +42,7 @@ def trova_fornitore(nome: str) -> str | None:
 
 
 def cerca_prodotto(codice: str) -> str | None:
-    r = requests.get(f"{API_BASE}/Prodotto", headers=HEADERS, params={
+    r = requests.get(f"{API_BASE}/CProdotto", headers=HEADERS, params={
         "maxSize": 1, "select": "id",
         "where[0][type]": "equals",
         "where[0][attribute]": "codice",
@@ -66,11 +66,11 @@ def salva_prodotto(payload: dict) -> str:
     codice = payload.get("codice", "")
     existing_id = cerca_prodotto(codice) if codice else None
     if existing_id:
-        r = requests.patch(f"{API_BASE}/Prodotto/{existing_id}",
+        r = requests.patch(f"{API_BASE}/CProdotto/{existing_id}",
                            headers=HEADERS, json=payload, timeout=10)
         return "aggiornato" if r.ok else "errore"
     else:
-        r = requests.post(f"{API_BASE}/Prodotto",
+        r = requests.post(f"{API_BASE}/CProdotto",
                           headers=HEADERS, json=payload, timeout=10)
         return "inserito" if r.ok else "errore"
 
