@@ -39,6 +39,7 @@ from agent.email_reader import reader_from_config, get_sender_email
 from agent.order_extractor import OrderExtractor
 from agent.price_checker import verifica_ordine, format_rapporto_telegram
 from agent.email_sender import sender_from_config, invia_ordine
+from agent.espocrm_client import espocrm_from_config
 from agent.telegram_notifier import (
     OrderBot, invia_notifica, invia_testo, SMTP_PRESETS
 )
@@ -72,6 +73,10 @@ def load_config(path: str = None) -> dict:
         cfg.setdefault("smtp", {})["host"] = os.environ["SMTP_HOST"]
     if os.environ.get("SMTP_FROM_NAME"):
         cfg.setdefault("smtp", {})["from_name"] = os.environ["SMTP_FROM_NAME"]
+    if os.environ.get("ESPOCRM_URL"):
+        cfg.setdefault("espocrm", {})["url"] = os.environ["ESPOCRM_URL"]
+    if os.environ.get("ESPOCRM_API_KEY"):
+        cfg.setdefault("espocrm", {})["api_key"] = os.environ["ESPOCRM_API_KEY"]
 
     return cfg
 
@@ -188,6 +193,7 @@ def processa_email(cfg: dict) -> int:
 def _build_callbacks(cfg: dict):
     """Return (on_conferma, on_rifiuta) callback functions."""
     sender = sender_from_config(cfg)
+    espocrm = espocrm_from_config(cfg)
 
     def on_conferma(ordine_id: int) -> None:
         ordine_row = db.get_ordine(ordine_id)
@@ -257,8 +263,26 @@ def _build_callbacks(cfg: dict):
             body_html="",
         )
 
-        invia_ordine(sender, email_msg, ordine_est, rapporto,
-                     azienda["email"], azienda["nome"])
+        if espocrm:
+            # Send via EspoCRM: create as Draft then call send action.
+            # This ensures the email is actually delivered via SMTP,
+            # not just stored as a record with status "Sent".
+            from agent.email_sender import prepara_email_ordine
+            subject, body = prepara_email_ordine(
+                email_msg, ordine_est, rapporto, azienda["nome"]
+            )
+            smtp_cfg = cfg.get("smtp", cfg.get("email", {}))
+            espocrm.create_and_send_email(
+                to=azienda["email"],
+                subject=subject,
+                body=body,
+                from_address=smtp_cfg.get("username"),
+                from_name=smtp_cfg.get("from_name"),
+            )
+        else:
+            # Fallback: send directly via SMTP
+            invia_ordine(sender, email_msg, ordine_est, rapporto,
+                         azienda["email"], azienda["nome"])
         db.aggiorna_stato_ordine(ordine_id, "inviato")
         db.rimuovi_pending(ordine_id)
         print(f"[ORDINE #{ordine_id}] Inviato a {azienda['email']}")

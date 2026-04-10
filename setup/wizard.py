@@ -128,6 +128,16 @@ def run_wizard():
     print()
     anthropic_key = _ask("Anthropic API Key")
 
+    # ── EspoCRM (opzionale) ─────────────────────────────────────────
+    print("\n── 5. ESPOCRM (opzionale) ──────────────────────────────")
+    print("Se usi EspoCRM, inserisci URL e API Key.")
+    print("Premi INVIO per saltare se non lo usi.")
+    print()
+    espocrm_url = _ask("URL EspoCRM (es. https://crm.example.com)", "")
+    espocrm_api_key = ""
+    if espocrm_url:
+        espocrm_api_key = _ask("API Key EspoCRM")
+
     # ── Write config ──────────────────────────────────────────────
     config = f"""# Email Order Processor — Configurazione
 # Generato dal wizard di setup
@@ -164,6 +174,13 @@ agent:
   segna_come_letta: true
   notifica_sempre: true
   azienda_default: ""
+"""
+
+    if espocrm_url:
+        config += f"""
+espocrm:
+  url: "{espocrm_url}"
+  api_key: "{espocrm_api_key}"
 """
 
     cfg_path.write_text(config, encoding="utf-8")
