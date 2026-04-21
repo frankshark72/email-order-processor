@@ -964,6 +964,82 @@ def lista_categorie_prodotti() -> str:
     return "\n".join(righe)
 
 
+@mcp.tool()
+def crea_task(
+    nome: str,
+    descrizione: str = "",
+    priorita: str = "Normal",
+    data_scadenza: str = "",
+    account_nome: str = "",
+) -> str:
+    """Crea un task/attività in EspoCRM.
+
+    Args:
+        nome: Titolo del task (obbligatorio).
+        descrizione: Dettagli del task.
+        priorita: Low | Normal | High | Urgent (default Normal).
+        data_scadenza: Data scadenza in formato YYYY-MM-DD (opzionale).
+        account_nome: Nome dell'azienda cliente da collegare al task (opzionale).
+    """
+    payload: dict = {
+        "name": nome,
+        "status": "Not Started",
+        "priority": priorita,
+    }
+    if descrizione:
+        payload["description"] = descrizione
+    if data_scadenza:
+        payload["dateEnd"] = data_scadenza
+
+    if account_nome:
+        clienti = _search("Account", [{"type": "contains", "attribute": "name", "value": account_nome}],
+                          select="id,name", max_size=1)
+        if clienti:
+            payload["parentId"] = clienti[0]["id"]
+            payload["parentType"] = "Account"
+
+    r = requests.post(f"{API_BASE}/Task", headers=_headers(), json=payload, timeout=10)
+    r.raise_for_status()
+    task = r.json()
+    return f"✅ Task creato: '{task.get('name')}' (ID: {task.get('id')}) — Scadenza: {task.get('dateEnd') or 'non impostata'}"
+
+
+@mcp.tool()
+def lista_task(
+    solo_aperti: bool = True,
+    account_nome: str = "",
+    limit: int = 20,
+) -> str:
+    """Elenca i task presenti in EspoCRM.
+
+    Args:
+        solo_aperti: Se True mostra solo task non completati (default True).
+        account_nome: Filtra per azienda cliente (opzionale).
+        limit: Numero massimo di task da restituire (default 20).
+    """
+    where = []
+    if solo_aperti:
+        where.append({"type": "notIn", "attribute": "status", "value": ["Completed", "Canceled"]})
+    if account_nome:
+        clienti = _search("Account", [{"type": "contains", "attribute": "name", "value": account_nome}],
+                          select="id,name", max_size=1)
+        if clienti:
+            where.append({"type": "equals", "attribute": "parentId", "value": clienti[0]["id"]})
+
+    tasks = _search("Task", where, select="name,status,priority,dateEnd,parentName", max_size=limit)
+    if not tasks:
+        return "Nessun task trovato."
+
+    righe = [f"📋 Task ({len(tasks)}):\n"]
+    for t in tasks:
+        scadenza = t.get("dateEnd") or "—"
+        priorita = t.get("priority") or "Normal"
+        stato = t.get("status") or "—"
+        parent = t.get("parentName") or ""
+        righe.append(f"  • [{priorita}] {t.get('name')} | {stato} | Scad: {scadenza}{' | ' + parent if parent else ''}")
+    return "\n".join(righe)
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
