@@ -301,6 +301,28 @@ def aggiungi_sconto(nome_cliente: str, nome_fornitore: str,
     return f"✅ Sconto salvato: {ac[0]['name']} | {af[0]['name']} | {tipo_cliente} | {sconto_pct}%"
 
 
+@mcp.tool()
+def clienti_per_fornitore(nome_fornitore: str) -> str:
+    """Elenca tutti i clienti associati a un fornitore (per campagne mirate)."""
+    fornitori = _search("Account", [{"type": "contains", "attribute": "name", "value": nome_fornitore}],
+                        select="id,name", max_size=1)
+    if not fornitori:
+        return f"Fornitore '{nome_fornitore}' non trovato."
+    f = fornitori[0]
+
+    sconti = _search("CScontoCliente",
+                     [{"type": "equals", "attribute": "fornitoreId", "value": f["id"]}],
+                     select="accountId,accountName,tipoCliente,scontoPct", max_size=200)
+    if not sconti:
+        return f"Nessun cliente associato a {f['name']}."
+
+    lines = [f"👥 Clienti {f['name']} ({len(sconti)}):"]
+    for s in sconti:
+        sc = f" -{s['scontoPct']}%" if s.get("scontoPct") else ""
+        lines.append(f"  • {s.get('accountName','?')} | {s.get('tipoCliente','?')}{sc}")
+    return "\n".join(lines)
+
+
 if __name__ == "__main__":
     _check_api_key()
     mcp.run(transport="stdio")
