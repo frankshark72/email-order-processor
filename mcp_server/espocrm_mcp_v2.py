@@ -588,6 +588,45 @@ def log_chiamata_tasker(numero: str, durata_secondi: int = 0,
     return f"✅ Chiamata {direzione} con {nome} ({max(1, durata_secondi//60)} min) registrata."
 
 
+# ── CONTATTI ─────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+def aggiungi_contatto(nome_account: str, nome: str, cognome: str,
+                      telefono: str = "", email: str = "", ruolo: str = "") -> str:
+    """Aggiunge un contatto a un account esistente in EspoCRM."""
+    accounts = _search("Account", [{"type": "contains", "attribute": "name", "value": nome_account}],
+                       select="id,name", max_size=1)
+    if not accounts:
+        return f"Account '{nome_account}' non trovato."
+    a = accounts[0]
+    payload: dict = {"firstName": nome, "lastName": cognome, "accountId": a["id"]}
+    if telefono: payload["phoneNumber"] = telefono
+    if email: payload["emailAddress"] = email
+    if ruolo: payload["title"] = ruolo
+    result = _post("Contact", payload)
+    return f"✅ Contatto '{nome} {cognome}' aggiunto a {a['name']}. ID: {result.get('id','?')}"
+
+
+@mcp.tool()
+def contatti_account(nome_account: str) -> str:
+    """Mostra i contatti di un account."""
+    accounts = _search("Account", [{"type": "contains", "attribute": "name", "value": nome_account}],
+                       select="id,name", max_size=1)
+    if not accounts:
+        return f"Account '{nome_account}' non trovato."
+    contatti = _search("Contact",
+                       [{"type": "equals", "attribute": "accountId", "value": accounts[0]["id"]}],
+                       select="firstName,lastName,emailAddress,phoneNumber,title", max_size=20)
+    if not contatti:
+        return f"Nessun contatto per {accounts[0]['name']}."
+    lines = [f"👤 Contatti {accounts[0]['name']}:"]
+    for c in contatti:
+        nome_c = f"{c.get('firstName','')} {c.get('lastName','')}".strip()
+        ruolo = f" — {c['title']}" if c.get("title") else ""
+        lines.append(f"  • {nome_c}{ruolo} | 📞 {c.get('phoneNumber','—')} | ✉️ {c.get('emailAddress','—')}")
+    return "\n".join(lines)
+
+
 # ── ENTRY POINT ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
