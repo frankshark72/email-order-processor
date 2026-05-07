@@ -334,7 +334,7 @@ def lista_categorie_prodotti() -> str:
 
 
 @mcp.tool()
-def calcola_prezzo(nome_prodotto: str, quantita: int, nome_cliente: str = "") -> str:
+def calcola_prezzo(nome_prodotto: str, quantita: int = 1, nome_cliente: str = "") -> str:
     """Calcola prezzo netto per prodotto e quantità, usando il contratto cliente se disponibile."""
     prodotti = _search("CProdotto",
                        [{"type": "or", "value": [
