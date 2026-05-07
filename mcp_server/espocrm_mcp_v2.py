@@ -289,8 +289,8 @@ def aggiungi_sconto(nome_cliente: str, nome_fornitore: str,
 
 @mcp.tool()
 def cerca_prodotti(testo: str = "", categoria: str = "", fornitore: str = "",
-                   solo_attivi: bool = True, limit: int = 30) -> str:
-    """Cerca prodotti per testo (codice/nome/descrizione), categoria o fornitore."""
+                   solo_attivi: bool = False, limit: int = 50) -> str:
+    """Cerca prodotti per testo (codice/nome/descrizione), categoria o fornitore. Elenca TUTTI i risultati trovati senza riassumere."""
     where = []
     if testo:
         where.append({"type": "or", "value": [
@@ -303,18 +303,15 @@ def cerca_prodotti(testo: str = "", categoria: str = "", fornitore: str = "",
     if solo_attivi: where.append({"type": "isTrue", "attribute": "attivo"})
     if not where: where.append({"type": "isTrue", "attribute": "attivo"})
     prodotti = _search("CProdotto", where,
-                       select="name,codice,categoria,descrizioneEstesa,prezzoListino,unitaMisura,accountName",
+                       select="name,codice,categoria,prezzoListino,unitaMisura,accountName",
                        max_size=limit)
     if not prodotti:
         return "Nessun prodotto trovato."
-    lines = [f"📦 {len(prodotti)} prodotti:"]
+    lines = [f"📦 {len(prodotti)} prodotti trovati — ELENCO COMPLETO:"]
     for p in prodotti:
         prezzo = p.get("prezzoListino")
-        prezzo_str = f"€{float(prezzo):.2f}" if prezzo else "su richiesta"
-        descr = (p.get("descrizioneEstesa") or "")[:80]
-        lines.append(f"• [{p.get('codice','—')}] {p['name']} | {p.get('accountName','—')} | "
-                     f"{p.get('categoria','—')} | {prezzo_str}/{p.get('unitaMisura','pz')}")
-        if descr: lines.append(f"  {descr}")
+        prezzo_str = f"€{float(prezzo):.2f}" if prezzo else "—"
+        lines.append(f"• [{p.get('codice','—')}] {p['name']} | {p.get('accountName','—')} | {prezzo_str}/{p.get('unitaMisura','pz')}")
     return "\n".join(lines)
 
 
