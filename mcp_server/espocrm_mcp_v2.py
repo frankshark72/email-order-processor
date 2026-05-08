@@ -413,6 +413,63 @@ def calcola_prezzo(nome_prodotto: str, quantita: int = 1, nome_cliente: str = ""
     return "\n".join(lines)
 
 
+# ── OPPORTUNITÀ ───────────────────────────────────────────────────────────────
+
+@mcp.tool()
+def crea_opportunita(nome: str, nome_cliente: str, importo: float = 0.0,
+                     data_chiusura: str = "", fase: str = "Proposal/Price Quote",
+                     probabilita: int = 50, descrizione: str = "") -> str:
+    """
+    Crea un'opportunità commerciale collegata a un cliente.
+    fase: Prospecting|Qualification|Proposal/Price Quote|Negotiation/Review|Closed Won|Closed Lost
+    data_chiusura: YYYY-MM-DD (default: 30 giorni da oggi)
+    """
+    accounts = _search("Account", [{"type": "contains", "attribute": "name", "value": nome_cliente}],
+                       select="id,name", max_size=1)
+    if not accounts:
+        return f"Cliente '{nome_cliente}' non trovato."
+    a = accounts[0]
+    chiusura = data_chiusura or (date.today() + timedelta(days=30)).isoformat()
+    payload: dict = {
+        "name": nome,
+        "accountId": a["id"],
+        "closeDate": chiusura,
+        "stage": fase,
+        "probability": probabilita,
+    }
+    if importo: payload["amount"] = importo
+    if descrizione: payload["description"] = descrizione
+    result = _post("Opportunity", payload)
+    return (f"✅ Opportunità '{nome}' creata per {a['name']}.\n"
+            f"   Importo: €{importo:,.2f} | Fase: {fase} | Chiusura: {chiusura}\n"
+            f"   ID: {result.get('id','?')}")
+
+
+@mcp.tool()
+def lista_opportunita(nome_cliente: str = "", fase: str = "", limit: int = 20) -> str:
+    """Elenca opportunità, filtrando per cliente e/o fase."""
+    where = []
+    if nome_cliente:
+        ac = _search("Account", [{"type": "contains", "attribute": "name", "value": nome_cliente}],
+                     select="id", max_size=1)
+        if ac:
+            where.append({"type": "equals", "attribute": "accountId", "value": ac[0]["id"]})
+    if fase:
+        where.append({"type": "equals", "attribute": "stage", "value": fase})
+    opps = _search("Opportunity", where,
+                   select="name,accountName,amount,stage,closeDate,probability",
+                   max_size=limit)
+    if not opps:
+        return "Nessuna opportunità trovata."
+    lines = [f"💼 Opportunità ({len(opps)}):"]
+    for o in opps:
+        amt = o.get("amount")
+        amt_str = f"€{float(amt):,.2f}" if amt else "—"
+        lines.append(f"• {o['name']} | {o.get('accountName','?')} | {amt_str}"
+                     f" | {o.get('stage','?')} | {o.get('closeDate','?')}")
+    return "\n".join(lines)
+
+
 # ── TASK ──────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
