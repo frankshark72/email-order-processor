@@ -640,6 +640,239 @@ def contatti_account(nome_account: str) -> str:
     return "\n".join(lines)
 
 
+# ── PREVENTIVI ───────────────────────────────────────────────────────────────
+
+@mcp.tool()
+def crea_preventivo(cliente: str, righe: str, note: str = "",
+                    giorni_validita: int = 30, sconto_globale: float = 0.0) -> str:
+    """
+    Crea un preventivo in EspoCRM con righe prodotto dal catalogo.
+    cliente: nome account
+    righe: JSON list es. [{"codice":"H0160B","qta":5},{"codice":"KP6AUTPWT","qta":20,"sconto":10}]
+    sconto_globale: sconto % applicato sul totale finale
+    """
+    import json as _json
+
+    accounts = _search("Account", [{"type": "contains", "attribute": "name", "value": cliente}],
+                       select="id,name,emailAddress", max_size=1)
+    if not accounts:
+        return f"Cliente '{cliente}' non trovato."
+    account = accounts[0]
+
+    try:
+        righe_list = _json.loads(righe)
+    except Exception as e:
+        return f"Errore nel formato righe JSON: {e}"
+
+    oggi = date.today()
+    scadenza = (oggi + timedelta(days=giorni_validita)).isoformat()
+
+    righe_risolte = []
+    totale_netto = 0.0
+    errori = []
+
+    for riga in righe_list:
+        codice = str(riga.get("codice") or riga.get("name") or "")
+        qta = float(riga.get("qta") or riga.get("quantita") or 1)
+        sconto_riga = float(riga.get("sconto") or 0)
+        prezzo_override = riga.get("prezzo")
+
+        prodotti = _search("CProdotto",
+                           [{"type": "or", "value": [
+                               {"type": "equals", "attribute": "codice", "value": codice},
+                               {"type": "contains", "attribute": "name", "value": codice},
+                           ]}],
+                           select="id,name,codice,prezzoListino,unitaMisura", max_size=1)
+        if not prodotti:
+            errori.append(f"Prodotto '{codice}' non trovato")
+            continue
+
+        p = prodotti[0]
+        prezzo = float(prezzo_override or p.get("prezzoListino") or 0)
+        totale_riga = prezzo * qta * (1 - sconto_riga / 100)
+        totale_netto += totale_riga
+        righe_risolte.append({
+            "prodotto_id": p["id"],
+            "codice": p.get("codice", codice),
+            "descrizione": p["name"],
+            "qta": qta,
+            "um": p.get("unitaMisura", "pz"),
+            "prezzo": prezzo,
+            "sconto": sconto_riga,
+            "totale_riga": totale_riga,
+        })
+
+    if not righe_risolte:
+        return "Nessun prodotto trovato. " + "; ".join(errori)
+
+    totale_finale = totale_netto * (1 - sconto_globale / 100)
+    contatore = len(_search("CPreventivo", [], select="id", max_size=9999)) + 1
+    numero = f"PREV-{oggi.strftime('%Y%m%d')}-{str(contatore).zfill(3)}"
+
+    payload_prev: dict = {
+        "name": numero,
+        "clienteId": account["id"],
+        "emailDestinatario": account.get("emailAddress", ""),
+        "dataPreventivo": oggi.isoformat(),
+        "dataScadenza": scadenza,
+        "stato": "bozza",
+        "note": note,
+        "scontoGlobale": sconto_globale,
+        "totaleNetto": totale_netto,
+        "totaleFinale": totale_finale,
+        "oggettoEmail": f"Preventivo {numero} — {account['name']}",
+    }
+    prev = _post("CPreventivo", payload_prev)
+    prev_id = prev.get("id")
+    if not prev_id:
+        return "Errore nella creazione del preventivo."
+
+    for r in righe_risolte:
+        _post("CRigaPreventivo", {
+            "name": r["descrizione"],
+            "preventivoId": prev_id,
+            "prodottoId": r["prodotto_id"],
+            "codiceProdotto": r["codice"],
+            "descrizione": r["descrizione"],
+            "quantita": r["qta"],
+            "unitaMisura": r["um"],
+            "prezzoUnitario": r["prezzo"],
+            "sconto": r["sconto"],
+            "totaleRiga": r["totale_riga"],
+        })
+
+    lines = [f"✅ Preventivo {numero} creato per {account['name']}",
+             f"   Scadenza: {scadenza} | Stato: Bozza", "\nRighe:"]
+    for r in righe_risolte:
+        sc = f" (-{r['sconto']}%)" if r["sconto"] else ""
+        lines.append(f"  • [{r['codice']}] {r['descrizione']} × {r['qta']} {r['um']}"
+                     f" | €{r['prezzo']:.4f}{sc} = €{r['totale_riga']:.2f}")
+    lines.append(f"\nTotale netto: €{totale_netto:.2f}")
+    if sconto_globale:
+        lines.append(f"Sconto globale: -{sconto_globale}%")
+    lines.append(f"💰 Totale finale: €{totale_finale:.2f}")
+    if errori:
+        lines.append("\n⚠️ Non trovati: " + "; ".join(errori))
+    lines.append(f"\nID: {prev_id}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def lista_preventivi(cliente: str = "", stato: str = "", limit: int = 20) -> str:
+    """Elenca preventivi. stato: bozza|inviato|accettato|rifiutato|scaduto"""
+    where = []
+    if cliente:
+        ac = _search("Account", [{"type": "contains", "attribute": "name", "value": cliente}],
+                     select="id", max_size=1)
+        if ac:
+            where.append({"type": "equals", "attribute": "clienteId", "value": ac[0]["id"]})
+    if stato:
+        where.append({"type": "equals", "attribute": "stato", "value": stato})
+    preventivi = _search("CPreventivo", where,
+                         select="name,clienteName,stato,dataPreventivo,dataScadenza,totaleFinale",
+                         max_size=limit)
+    if not preventivi:
+        return "Nessun preventivo trovato."
+    lines = [f"📄 Preventivi ({len(preventivi)}):"]
+    for p in preventivi:
+        tot = p.get("totaleFinale")
+        tot_str = f"€{float(tot):.2f}" if tot else "—"
+        lines.append(f"• [{p.get('stato','?')}] {p['name']} | {p.get('clienteName','?')}"
+                     f" | {tot_str} | scad. {p.get('dataScadenza','?')}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def lista_template_pdf() -> str:
+    """Elenca i template PDF disponibili per CPreventivo. Serve l'ID per inviare il PDF."""
+    r = requests.get(f"{API_BASE}/PdfTemplate", headers=_headers(),
+                     params={"maxSize": 50, "where[0][type]": "equals",
+                             "where[0][attribute]": "entityType",
+                             "where[0][value]": "CPreventivo"}, timeout=10)
+    if r.status_code == 404:
+        return "ℹ️ Nessun template trovato. Crea un template in EspoCRM: Admin > Template PDF > entità Preventivo."
+    templates = r.json().get("list", []) if r.status_code == 200 else []
+    if not templates:
+        return "ℹ️ Nessun template PDF per CPreventivo. Vai su Admin > Template PDF e crea un template per l'entità 'Preventivo'."
+    lines = ["📋 Template PDF:"]
+    for t in templates:
+        lines.append(f"  • ID: {t.get('id')} | {t.get('name','?')}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def invia_preventivo_email(preventivo_id: str, messaggio: str = "",
+                           email_override: str = "", template_id: str = "") -> str:
+    """
+    Invia il preventivo via email da EspoCRM con PDF allegato.
+    preventivo_id: ID del preventivo (da crea_preventivo)
+    template_id: ID del template PDF (da lista_template_pdf)
+    email_override: se vuoto usa emailDestinatario del preventivo
+    messaggio: corpo email HTML personalizzato (opzionale)
+    """
+    import base64 as _b64
+
+    r = requests.get(f"{API_BASE}/CPreventivo/{preventivo_id}", headers=_headers(), timeout=10)
+    if r.status_code != 200:
+        return f"Preventivo non trovato (ID: {preventivo_id})."
+    prev = r.json()
+
+    email_to = email_override or prev.get("emailDestinatario", "")
+    if not email_to:
+        return ("Email destinatario non impostata. "
+                "Specifica email_override oppure imposta emailDestinatario nel preventivo.")
+
+    oggetto = prev.get("oggettoEmail") or f"Preventivo {prev.get('name','')} — {prev.get('clienteName','')}"
+    corpo = messaggio or (
+        f"Gentile Cliente,<br><br>"
+        f"in allegato il preventivo <strong>{prev.get('name','')}</strong> "
+        f"valido fino al {prev.get('dataScadenza','—')}.<br><br>"
+        f"Totale: <strong>€{float(prev.get('totaleFinale') or 0):.2f}</strong><br><br>"
+        f"Rimango a disposizione per qualsiasi chiarimento.<br><br>"
+        f"Cordiali saluti"
+    )
+
+    email_payload: dict = {
+        "status": "Sending",
+        "to": email_to,
+        "subject": oggetto,
+        "body": corpo,
+        "isHtml": True,
+        "parentType": "CPreventivo",
+        "parentId": preventivo_id,
+    }
+
+    pdf_allegato = False
+    if template_id:
+        pdf_r = requests.get(f"{API_BASE}/CPreventivo/{preventivo_id}/pdf/{template_id}",
+                             headers=_headers(), timeout=30)
+        if pdf_r.status_code == 200:
+            att_r = requests.post(f"{API_BASE}/Attachment", headers=_headers(), json={
+                "name": f"{prev.get('name','preventivo')}.pdf",
+                "type": "application/pdf",
+                "role": "Attachment",
+                "relatedType": "Email",
+                "field": "attachments",
+                "contents": _b64.b64encode(pdf_r.content).decode(),
+            }, timeout=30)
+            if att_r.status_code in (200, 201):
+                att_id = att_r.json().get("id")
+                if att_id:
+                    email_payload["attachmentsIds"] = [att_id]
+                    pdf_allegato = True
+        else:
+            return (f"Errore generazione PDF (status {pdf_r.status_code}). "
+                    f"Verifica che il template_id={template_id} esista (usa lista_template_pdf).")
+
+    send_r = requests.post(f"{API_BASE}/Email", headers=_headers(), json=email_payload, timeout=15)
+    if send_r.status_code not in (200, 201):
+        return f"Errore invio email: {send_r.status_code} — {send_r.text[:300]}"
+
+    _patch("CPreventivo", preventivo_id, {"stato": "inviato"})
+    pdf_note = " con PDF allegato" if pdf_allegato else " (senza PDF — template_id non fornito)"
+    return f"✅ Preventivo {prev.get('name','')} inviato a {email_to}{pdf_note}. Stato → Inviato."
+
+
 # ── ENTRY POINT ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
