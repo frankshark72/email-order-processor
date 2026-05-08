@@ -44,10 +44,14 @@ def _encode_where(params: dict, conditions: list, prefix: str = "where") -> None
                 params[f"{key_prefix}[{key}]"] = val
 
 
-def _search(entity: str, where: list, select: str = "", max_size: int = 50) -> list:
+def _search(entity: str, where: list, select: str = "", max_size: int = 50,
+            order_by: str = "", order_direction: str = "asc") -> list:
     params: dict = {"maxSize": max_size}
     if select:
         params["select"] = select
+    if order_by:
+        params["orderBy"] = order_by
+        params["order"] = order_direction
     _encode_where(params, where)
     r = requests.get(f"{API_BASE}/{entity}", headers=_headers(), params=params, timeout=10)
     if r.status_code == 404:

@@ -289,21 +289,17 @@ def aggiungi_sconto(nome_cliente: str, nome_fornitore: str,
 
 @mcp.tool()
 def cerca_prodotti(testo: str = "", categoria: str = "", fornitore: str = "",
-                   solo_attivi: bool = False, limit: int = 20) -> str:
+                   solo_attivi: bool = False, limit: int = 50) -> str:
     """Cerca prodotti per testo (codice/nome/descrizione), categoria o fornitore. Elenca TUTTI i risultati trovati senza riassumere."""
     where = []
     if testo:
-        import re as _re
         # Ogni parola deve essere presente (AND), cercata su nome/codice/descrizione (OR)
         for parola in testo.split():
-            # Normalizza: rimuove punti e trattini (Cat.6 → Cat6, U-UTP → UUTP)
-            normalizzata = _re.sub(r'[.\-/]', '', parola)
-            token = normalizzata if normalizzata else parola
-            if len(token) >= 1:
+            if len(parola) >= 1:
                 where.append({"type": "or", "value": [
-                    {"type": "contains", "attribute": "name", "value": token},
-                    {"type": "contains", "attribute": "codice", "value": token},
-                    {"type": "contains", "attribute": "descrizioneEstesa", "value": token},
+                    {"type": "contains", "attribute": "name", "value": parola},
+                    {"type": "contains", "attribute": "codice", "value": parola},
+                    {"type": "contains", "attribute": "descrizioneEstesa", "value": parola},
                 ]})
     if categoria: where.append({"type": "contains", "attribute": "categoria", "value": categoria})
     if fornitore: where.append({"type": "contains", "attribute": "accountName", "value": fornitore})
@@ -320,7 +316,7 @@ def cerca_prodotti(testo: str = "", categoria: str = "", fornitore: str = "",
 
     prodotti = _search("CProdotto", where,
                        select="name,codice,categoria,prezzoListino,unitaMisura,accountName",
-                       max_size=limit)
+                       max_size=limit, order_by="name", order_direction="asc")
     if not prodotti:
         return "Nessun prodotto trovato."
 
