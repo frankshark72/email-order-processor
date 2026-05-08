@@ -763,7 +763,9 @@ def crea_preventivo(cliente: str, righe: str, note: str = "",
         return "Nessun prodotto trovato. " + "; ".join(errori)
 
     totale_finale = totale_netto * (1 - sconto_globale / 100)
-    contatore = len(_search("CPreventivo", [], select="id", max_size=9999)) + 1
+    r_count = requests.get(f"{API_BASE}/CPreventivo", headers=_headers(),
+                           params={"maxSize": 1}, timeout=10)
+    contatore = (r_count.json().get("total", 0) + 1) if r_count.status_code == 200 else 1
     numero = f"PREV-{oggi.strftime('%Y%m%d')}-{str(contatore).zfill(3)}"
 
     payload_prev: dict = {
