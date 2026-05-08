@@ -22,7 +22,10 @@ echo "\n=== 1. Scopes CPreventivo ===\n";
 mk(CUSTOM . '/metadata/scopes/CPreventivo.json', [
     "entity"       => true,
     "object"       => true,
+    "layouts"      => true,
     "tab"          => true,
+    "acl"          => true,
+    "aclPortal"    => true,
     "type"         => "BasePlus",
     "module"       => "Custom",
     "stream"       => true,
@@ -30,6 +33,7 @@ mk(CUSTOM . '/metadata/scopes/CPreventivo.json', [
     "importable"   => true,
     "customizable" => true,
     "isCustom"     => true,
+    "notifications"=> true,
     "color"        => "#27ae60",
     "iconClass"    => "fas fa-file-invoice",
 ]);
@@ -79,7 +83,10 @@ echo "\n=== 3. Scopes CRigaPreventivo ===\n";
 mk(CUSTOM . '/metadata/scopes/CRigaPreventivo.json', [
     "entity"       => true,
     "object"       => true,
+    "layouts"      => true,
     "tab"          => false,
+    "acl"          => true,
+    "aclPortal"    => true,
     "type"         => "Base",
     "module"       => "Custom",
     "stream"       => false,
