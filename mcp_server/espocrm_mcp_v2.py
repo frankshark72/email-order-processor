@@ -298,8 +298,8 @@ def cerca_prodotti(testo: str = "", categoria: str = "", fornitore: str = "",
         for parola in testo.split():
             # Normalizza: rimuove punti e trattini (Cat.6 → Cat6, U-UTP → UUTP)
             normalizzata = _re.sub(r'[.\-/]', '', parola)
-            token = normalizzata if len(normalizzata) >= 2 else parola
-            if len(token) >= 2:
+            token = normalizzata if normalizzata else parola
+            if len(token) >= 1:
                 where.append({"type": "or", "value": [
                     {"type": "contains", "attribute": "name", "value": token},
                     {"type": "contains", "attribute": "codice", "value": token},
