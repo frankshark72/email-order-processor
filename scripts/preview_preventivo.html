@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Preview Preventivo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #333; background: #e0e0e0; }
+  .page { background: white; max-width: 900px; margin: 30px auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+
+  .header { background: #1a2e4a; color: white; padding: 30px 40px; display: flex; justify-content: space-between; align-items: flex-start; }
+  .company-name { font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+  .company-details { font-size: 11px; color: #aabbd0; margin-top: 6px; line-height: 1.6; }
+  .doc-title { text-align: right; }
+  .doc-title h1 { font-size: 28px; font-weight: 300; letter-spacing: 3px; text-transform: uppercase; }
+  .doc-number { font-size: 13px; color: #64b5f6; margin-top: 4px; letter-spacing: 1px; }
+
+  .stripe { height: 4px; background: linear-gradient(to right, #1976d2, #42a5f5, #1a2e4a); }
+
+  .info-section { display: flex; justify-content: space-between; padding: 30px 40px 20px; gap: 20px; }
+  .client-box { background: #f5f7fa; border-left: 4px solid #1976d2; padding: 16px 20px; flex: 1; border-radius: 0 4px 4px 0; }
+  .client-box .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #1976d2; font-weight: 700; margin-bottom: 8px; }
+  .client-name { font-size: 16px; font-weight: 700; color: #1a2e4a; }
+  .dates-box { text-align: right; }
+  .dates-box table { margin-left: auto; }
+  .dates-box td { padding: 4px 0 4px 20px; font-size: 12px; }
+  .dates-box td:first-child { color: #888; text-align: right; }
+  .dates-box td:last-child { font-weight: 600; color: #1a2e4a; }
+  .validity-badge { display: inline-block; background: #e3f2fd; color: #1565c0; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+
+  .table-section { padding: 0 40px 20px; }
+  table.items { width: 100%; border-collapse: collapse; }
+  table.items thead tr { background: #1a2e4a; color: white; }
+  table.items thead th { padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  table.items thead th.right { text-align: right; }
+  table.items tbody tr { border-bottom: 1px solid #e8ecf0; }
+  table.items tbody tr:nth-child(even) { background: #f9fafb; }
+  table.items td { padding: 10px 12px; font-size: 12px; }
+  table.items td.right { text-align: right; }
+  table.items td.code { font-family: monospace; color: #1976d2; font-weight: 600; font-size: 11px; }
+  table.items td.desc { color: #444; }
+  table.items td.price { color: #333; }
+
+  .totals-section { padding: 0 40px 30px; display: flex; justify-content: flex-end; }
+  .totals-box { width: 300px; }
+  .totals-box table { width: 100%; }
+  .totals-box td { padding: 7px 12px; font-size: 13px; }
+  .totals-box td:first-child { color: #666; }
+  .totals-box td:last-child { text-align: right; font-weight: 600; }
+  .totals-box tr.discount td { color: #e65100; }
+  .totals-box tr.final td { background: #1a2e4a; color: white; padding: 12px; font-size: 16px; font-weight: 700; }
+  .totals-box tr.final td:first-child { color: #aabbd0; font-size: 12px; font-weight: 400; border-radius: 4px 0 0 4px; }
+  .totals-box tr.final td:last-child { border-radius: 0 4px 4px 0; }
+
+  .note-section { margin: 0 40px 30px; padding: 16px 20px; background: #fffde7; border-left: 4px solid #f9a825; border-radius: 0 4px 4px 0; }
+  .note-section .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #f9a825; font-weight: 700; margin-bottom: 6px; }
+  .note-section p { font-size: 12px; color: #555; line-height: 1.6; }
+
+  .footer { background: #f5f7fa; border-top: 1px solid #e0e0e0; padding: 16px 40px; display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
+  .footer-left { font-size: 10px; color: #999; line-height: 1.6; }
+  .footer-right { font-size: 10px; color: #bbb; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div>
+      <div class="company-name">CECERE FORNITURE S.R.L.</div>
+      <div class="company-details">
+        Via Appia Antica 42 — 70010 Bari (BA)<br>
+        P.IVA: 01234567890 | Tel: +39 080 1234567<br>
+        info@cecereforniture.it | www.cecereforniture.it
+      </div>
+    </div>
+    <div class="doc-title">
+      <h1>Preventivo</h1>
+      <div class="doc-number">N. PREV-20260508-003</div>
+    </div>
+  </div>
+  <div class="stripe"></div>
+
+  <div class="info-section">
+    <div class="client-box">
+      <div class="label">Destinatario</div>
+      <div class="client-name">Calò Impianti S.r.l.</div>
+      <div style="font-size:11px;color:#666;margin-top:4px;">amministrazione@caloimpianti.it</div>
+    </div>
+    <div class="dates-box">
+      <table>
+        <tr><td>Data emissione</td><td>08/05/2026</td></tr>
+        <tr><td>Valido fino al</td><td><span class="validity-badge">07/06/2026</span></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="table-section">
+    <table class="items">
+      <thead>
+        <tr>
+          <th style="width:12%">Codice</th>
+          <th>Descrizione</th>
+          <th class="right" style="width:8%">Qtà</th>
+          <th class="right" style="width:6%">U.M.</th>
+          <th class="right" style="width:13%">Prezzo Unit.</th>
+          <th class="right" style="width:8%">Sconto</th>
+          <th class="right" style="width:13%">Totale</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="code">H0160B</td>
+          <td class="desc">U-UTP Cat.6 4x2xAWG24/1 GRIGIO Eca</td>
+          <td class="right">2</td>
+          <td class="right" style="color:#888">km</td>
+          <td class="right price">€ 1.022,00</td>
+          <td class="right" style="color:#e65100">—</td>
+          <td class="right price"><strong>€ 2.044,00</strong></td>
+        </tr>
+        <tr>
+          <td class="code">830247</td>
+          <td class="desc">Accoppiatore Cat.6 RJ45 UTP IP68</td>
+          <td class="right">20</td>
+          <td class="right" style="color:#888">pz</td>
+          <td class="right price">€ 12,50</td>
+          <td class="right" style="color:#e65100">10%</td>
+          <td class="right price"><strong>€ 225,00</strong></td>
+        </tr>
+        <tr>
+          <td class="code">KP6AUTPWT</td>
+          <td class="desc">Plug UTP Cat.6A toolless</td>
+          <td class="right">50</td>
+          <td class="right" style="color:#888">pz</td>
+          <td class="right price">€ 3,60</td>
+          <td class="right" style="color:#e65100">5%</td>
+          <td class="right price"><strong>€ 171,00</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="totals-section">
+    <div class="totals-box">
+      <table>
+        <tr>
+          <td>Totale netto</td>
+          <td>€ 2.440,00</td>
+        </tr>
+        <tr class="discount">
+          <td>Sconto globale</td>
+          <td>5%</td>
+        </tr>
+        <tr class="final">
+          <td>Totale finale</td>
+          <td>€ 2.318,00</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="note-section">
+    <div class="label">Note e condizioni</div>
+    <p>Prezzi IVA esclusa. Validità offerta 30 giorni dalla data di emissione.<br>
+    Consegna: 5-7 giorni lavorativi dalla conferma d'ordine. Pagamento: 30 giorni d.f.f.m.</p>
+  </div>
+
+  <div class="footer">
+    <div class="footer-left">
+      CECERE FORNITURE S.R.L. — P.IVA 01234567890<br>
+      Documento generato l'08/05/2026
+    </div>
+    <div class="footer-right">Pag. 1</div>
+  </div>
+
+</div>
+</body>
+</html>
