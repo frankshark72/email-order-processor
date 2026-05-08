@@ -293,11 +293,14 @@ def cerca_prodotti(testo: str = "", categoria: str = "", fornitore: str = "",
     """Cerca prodotti per testo (codice/nome/descrizione), categoria o fornitore. Elenca TUTTI i risultati trovati senza riassumere."""
     where = []
     if testo:
-        where.append({"type": "or", "value": [
-            {"type": "contains", "attribute": "name", "value": testo},
-            {"type": "contains", "attribute": "codice", "value": testo},
-            {"type": "contains", "attribute": "descrizioneEstesa", "value": testo},
-        ]})
+        # Ogni parola deve essere presente (AND), cercata su nome/codice/descrizione (OR)
+        for parola in testo.split():
+            if len(parola) >= 2:
+                where.append({"type": "or", "value": [
+                    {"type": "contains", "attribute": "name", "value": parola},
+                    {"type": "contains", "attribute": "codice", "value": parola},
+                    {"type": "contains", "attribute": "descrizioneEstesa", "value": parola},
+                ]})
     if categoria: where.append({"type": "contains", "attribute": "categoria", "value": categoria})
     if fornitore: where.append({"type": "contains", "attribute": "accountName", "value": fornitore})
     if solo_attivi: where.append({"type": "isTrue", "attribute": "attivo"})
