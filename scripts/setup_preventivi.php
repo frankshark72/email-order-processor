@@ -5,6 +5,7 @@
  */
 
 define('CUSTOM', '/var/www/html/custom/Espo/Custom/Resources');
+define('CTRL',   '/var/www/html/custom/Espo/Custom/Controllers');
 
 function mk(string $path, array $data): void {
     $dir = dirname($path);
@@ -290,6 +291,14 @@ $global['scopeNamesPlural']['CPreventivo'] = 'Preventivi';
 $global['scopeNames']['CRigaPreventivo']   = 'Riga Preventivo';
 $global['scopeNamesPlural']['CRigaPreventivo'] = 'Righe Preventivo';
 mk($globalI18n, $global);
+
+echo "\n=== 13. Controllers ===\n";
+foreach (['CPreventivo', 'CRigaPreventivo'] as $entity) {
+    $path = CTRL . "/{$entity}.php";
+    if (!is_dir(CTRL)) mkdir(CTRL, 0755, true);
+    file_put_contents($path, "<?php\nnamespace Espo\\Custom\\Controllers;\nclass {$entity} extends \\Espo\\Core\\Controllers\\Record {}\n");
+    echo "  ✓ $path\n";
+}
 
 echo "\n=== COMPLETATO ===\n";
 echo "Ora esegui: docker exec espocrm-espocrm-1 php command.php rebuild\n\n";
