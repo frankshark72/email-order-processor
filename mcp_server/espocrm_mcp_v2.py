@@ -293,13 +293,17 @@ def cerca_prodotti(testo: str = "", categoria: str = "", fornitore: str = "",
     """Cerca prodotti per testo (codice/nome/descrizione), categoria o fornitore. Elenca TUTTI i risultati trovati senza riassumere."""
     where = []
     if testo:
+        import re as _re
         # Ogni parola deve essere presente (AND), cercata su nome/codice/descrizione (OR)
         for parola in testo.split():
-            if len(parola) >= 2:
+            # Normalizza: rimuove punti e trattini (Cat.6 → Cat6, U-UTP → UUTP)
+            normalizzata = _re.sub(r'[.\-/]', '', parola)
+            token = normalizzata if len(normalizzata) >= 2 else parola
+            if len(token) >= 2:
                 where.append({"type": "or", "value": [
-                    {"type": "contains", "attribute": "name", "value": parola},
-                    {"type": "contains", "attribute": "codice", "value": parola},
-                    {"type": "contains", "attribute": "descrizioneEstesa", "value": parola},
+                    {"type": "contains", "attribute": "name", "value": token},
+                    {"type": "contains", "attribute": "codice", "value": token},
+                    {"type": "contains", "attribute": "descrizioneEstesa", "value": token},
                 ]})
     if categoria: where.append({"type": "contains", "attribute": "categoria", "value": categoria})
     if fornitore: where.append({"type": "contains", "attribute": "accountName", "value": fornitore})
