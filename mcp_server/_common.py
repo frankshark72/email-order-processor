@@ -20,13 +20,15 @@ def _headers() -> dict:
 
 def _post(entity: str, payload: dict) -> dict:
     r = requests.post(f"{API_BASE}/{entity}", headers=_headers(), json=payload, timeout=10)
-    r.raise_for_status()
+    if not r.ok:
+        raise RuntimeError(f"EspoCRM {r.status_code} su {entity}: {r.text[:300]}")
     return r.json()
 
 
 def _patch(entity: str, record_id: str, payload: dict) -> dict:
     r = requests.patch(f"{API_BASE}/{entity}/{record_id}", headers=_headers(), json=payload, timeout=10)
-    r.raise_for_status()
+    if not r.ok:
+        raise RuntimeError(f"EspoCRM {r.status_code} su {entity}/{record_id}: {r.text[:300]}")
     return r.json()
 
 
