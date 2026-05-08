@@ -16,7 +16,7 @@ mcp = FastMCP("espocrm")
 
 @mcp.tool()
 def crea_cliente(nome: str, telefono: str = "", email: str = "", indirizzo: str = "",
-                 citta: str = "", cap: str = "", zona: str = "", tipo: str = "cliente",
+                 citta: str = "", cap: str = "", zona: str = "", tipo: str = "",
                  frequenza_visita_giorni: int = 30, note: str = "") -> str:
     """Crea un nuovo Account (cliente o fornitore) in EspoCRM."""
     payload: dict = {"name": nome}
