@@ -289,7 +289,7 @@ def aggiungi_sconto(nome_cliente: str, nome_fornitore: str,
 
 @mcp.tool()
 def cerca_prodotti(testo: str = "", categoria: str = "", fornitore: str = "",
-                   solo_attivi: bool = False, limit: int = 50) -> str:
+                   solo_attivi: bool = False, limit: int = 20) -> str:
     """Cerca prodotti per testo (codice/nome/descrizione), categoria o fornitore. Elenca TUTTI i risultati trovati senza riassumere."""
     where = []
     if testo:
@@ -302,16 +302,29 @@ def cerca_prodotti(testo: str = "", categoria: str = "", fornitore: str = "",
     if fornitore: where.append({"type": "contains", "attribute": "accountName", "value": fornitore})
     if solo_attivi: where.append({"type": "isTrue", "attribute": "attivo"})
     if not where: where.append({"type": "isTrue", "attribute": "attivo"})
+
+    # Prima ottieni il totale
+    import requests as req
+    from _common import _encode_where as ew
+    count_params: dict = {"maxSize": 1}
+    ew(count_params, where)
+    r = req.get(f"{API_BASE}/CProdotto", headers=_headers(), params=count_params, timeout=10)
+    totale = r.json().get("total", 0) if r.status_code == 200 else 0
+
     prodotti = _search("CProdotto", where,
                        select="name,codice,categoria,prezzoListino,unitaMisura,accountName",
                        max_size=limit)
     if not prodotti:
         return "Nessun prodotto trovato."
-    lines = [f"📦 {len(prodotti)} prodotti trovati — ELENCO COMPLETO:"]
+
+    lines = [f"📦 {totale} prodotti trovati — mostro i primi {len(prodotti)}:"]
     for p in prodotti:
         prezzo = p.get("prezzoListino")
         prezzo_str = f"€{float(prezzo):.2f}" if prezzo else "—"
         lines.append(f"• [{p.get('codice','—')}] {p['name']} | {p.get('accountName','—')} | {prezzo_str}/{p.get('unitaMisura','pz')}")
+
+    if totale > limit:
+        lines.append(f"\n⚠️ Ci sono altri {totale - limit} prodotti. Affina la ricerca (es. aggiungi categoria o fornitore).")
     return "\n".join(lines)
 
 
