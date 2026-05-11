@@ -10,7 +10,7 @@ class AfterSave
         private \Espo\Core\ORM\EntityManager $entityManager
     ) {}
 
-    public function run(Entity $entity, array $options = []): void
+    public function afterSave(Entity $entity, array $options = []): void
     {
         $this->ricalcolaTotali($entity->get('preventivoId'));
     }

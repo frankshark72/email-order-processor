@@ -9,6 +9,40 @@ if (!is_dir($dir)) {
     mkdir($dir, 0755, true);
 }
 
+$beforeSave = <<<'PHP'
+<?php
+namespace Espo\Custom\Hooks\CRigaPreventivo;
+use Espo\ORM\Entity;
+
+class BeforeSave
+{
+    public static $order = 9;
+
+    public function __construct(
+        private \Espo\Core\ORM\EntityManager $entityManager
+    ) {}
+
+    public function beforeSave(Entity $entity, array $options = []): void
+    {
+        $prodottoId = $entity->get('prodottoId');
+        if ($prodottoId && ($entity->isNew() || $entity->isAttributeChanged('prodottoId'))) {
+            $prodotto = $this->entityManager->getEntity('CProdotto', $prodottoId);
+            if ($prodotto) {
+                $entity->set('codiceProdotto', $prodotto->get('codice'));
+                $entity->set('descrizione', $prodotto->get('name'));
+                $entity->set('prezzoUnitario', $prodotto->get('prezzoListino'));
+            }
+        }
+
+        $quantita = floatval($entity->get('quantita') ?? 0);
+        $prezzoUnitario = floatval($entity->get('prezzoUnitario') ?? 0);
+        $sconto = floatval($entity->get('sconto') ?? 0);
+        $totale = $quantita * $prezzoUnitario * (1 - $sconto / 100);
+        $entity->set('totaleRiga', round($totale, 4));
+    }
+}
+PHP;
+
 $afterSave = <<<'PHP'
 <?php
 namespace Espo\Custom\Hooks\CRigaPreventivo;
@@ -22,7 +56,7 @@ class AfterSave
         private \Espo\Core\ORM\EntityManager $entityManager
     ) {}
 
-    public function run(Entity $entity, array $options = []): void
+    public function afterSave(Entity $entity, array $options = []): void
     {
         $this->ricalcolaTotali($entity->get('preventivoId'));
     }
@@ -66,7 +100,7 @@ class AfterRemove
         private \Espo\Core\ORM\EntityManager $entityManager
     ) {}
 
-    public function run(Entity $entity, array $options = []): void
+    public function afterRemove(Entity $entity, array $options = []): void
     {
         $preventivoId = $entity->get('preventivoId');
         if (!$preventivoId) return;
@@ -93,21 +127,16 @@ class AfterRemove
 }
 PHP;
 
+file_put_contents($dir . '/BeforeSave.php', $beforeSave);
 file_put_contents($dir . '/AfterSave.php', $afterSave);
 file_put_contents($dir . '/AfterRemove.php', $afterRemove);
 
-// Verify syntax
-$outSave   = shell_exec('php -l ' . $dir . '/AfterSave.php');
-$outRemove = shell_exec('php -l ' . $dir . '/AfterRemove.php');
-
-echo "AfterSave:   $outSave";
-echo "AfterRemove: $outRemove";
-
-// Clear EspoCRM cache
-$cacheDir = '/var/www/html/data/cache';
-if (is_dir($cacheDir)) {
-    shell_exec('rm -rf ' . $cacheDir . '/*');
-    echo "Cache cleared.\n";
+foreach (['BeforeSave', 'AfterSave', 'AfterRemove'] as $name) {
+    $out = shell_exec('php -l ' . $dir . '/' . $name . '.php');
+    echo "$name: $out";
 }
 
-echo "Done.\n";
+// Clear cache
+shell_exec('rm -rf /var/www/html/data/cache/*');
+echo "Cache cleared.\n";
+echo "Done. Run: php /var/www/html/command.php rebuild\n";

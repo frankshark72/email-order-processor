@@ -10,7 +10,7 @@ class AfterRemove
         private \Espo\Core\ORM\EntityManager $entityManager
     ) {}
 
-    public function run(Entity $entity, array $options = []): void
+    public function afterRemove(Entity $entity, array $options = []): void
     {
         $preventivoId = $entity->get('preventivoId');
         if (!$preventivoId) return;
