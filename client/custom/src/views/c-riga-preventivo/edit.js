@@ -1,4 +1,5 @@
 define(['views/edit'], function(EditView) {
+    console.log('[CRigaPreventivo edit.js] FILE CARICATO');
     return EditView.extend({
         exit: function(after) {
             if (after === 'save' || after === 'notModified') {
