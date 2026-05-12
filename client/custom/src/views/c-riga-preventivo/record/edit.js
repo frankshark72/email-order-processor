@@ -6,16 +6,6 @@ define(['views/record/edit'], function(EditView) {
             this.listenTo(this.model, 'change:quantita change:prezzoUnitario change:sconto', this.calcolaTotale.bind(this));
         },
 
-        afterSave: function() {
-            console.log('[record/edit afterSave] preventivoId=' + this.model.get('preventivoId'));
-            var prevId = this.model.get('preventivoId');
-            if (prevId) {
-                this.getRouter().navigate('#CPreventivo/view/' + prevId, {trigger: true});
-                return;
-            }
-            EditView.prototype.afterSave.call(this);
-        },
-
         onProdottoChange: function() {
             var prodottoId = this.model.get('prodottoId');
             if (!prodottoId) return;
