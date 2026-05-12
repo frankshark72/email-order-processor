@@ -12,7 +12,7 @@ define(['views/edit'], function(EditView) {
             EditView.prototype.afterSave.call(this);
         },
         exit: function(after) {
-            if (after === 'notModified') {
+            if (after === 'notModified' || after === 'cancel') {
                 var prevId = this.model.get('preventivoId');
                 if (prevId) {
                     this.getRouter().navigate('#CPreventivo/view/' + prevId, {trigger: true});
