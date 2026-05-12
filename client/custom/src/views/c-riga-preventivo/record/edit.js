@@ -23,15 +23,6 @@ define(['views/record/edit'], function(EditView) {
             });
         },
 
-        actionCancel: function() {
-            var prevId = this.model.get('preventivoId');
-            if (prevId) {
-                this.getRouter().navigate('#CPreventivo/view/' + prevId, {trigger: true});
-                return;
-            }
-            EditView.prototype.actionCancel.call(this);
-        },
-
         calcolaTotale: function() {
             var q = parseFloat(this.model.get('quantita') || 0);
             var p = parseFloat(this.model.get('prezzoUnitario') || 0);
