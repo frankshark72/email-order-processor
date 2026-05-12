@@ -11,6 +11,14 @@ define(['views/edit'], function(EditView) {
             }
             EditView.prototype.afterSave.call(this);
         },
+        actionCancel: function() {
+            var prevId = this.model.get('preventivoId');
+            if (prevId) {
+                this.getRouter().navigate('#CPreventivo/view/' + prevId, {trigger: true});
+                return;
+            }
+            EditView.prototype.actionCancel.call(this);
+        },
         exit: function(after) {
             if (after === 'notModified' || after === 'cancel') {
                 var prevId = this.model.get('preventivoId');
