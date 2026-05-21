@@ -1,4 +1,5 @@
 {
+  "id": "scanner-pettorali-gara",
   "name": "Scanner Pettorali Gara",
   "short_name": "Pettorali",
   "description": "Scansiona i QR code dei pettorali gara e rileva i duplicati",

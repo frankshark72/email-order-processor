@@ -55,6 +55,11 @@ GitHub Pages:
 5. Aprila sul telefono e, dal menu del browser, scegli
    **"Aggiungi a schermata Home"** per installarla come app.
 
+## Creare un APK Android
+
+L'app è una PWA: puoi trasformarla in un vero file `.apk` installabile senza
+scrivere codice nativo. Guida passo-passo in **[`GUIDA-APK.md`](GUIDA-APK.md)**.
+
 ## Spostare in un repository nuovo
 
 Questi file sono autonomi: per avere un repo dedicato basta copiare la cartella.
