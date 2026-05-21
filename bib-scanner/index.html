@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="Scansiona i QR code dei pettorali gara e rileva i duplicati">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Scanner Pettorali</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>🏃 Scanner Pettorali</h1>
+    <div class="counter" id="counter" title="Pettorali scansionati">0</div>
+  </header>
+
+  <main>
+    <section class="camera-section" id="cameraSection">
+      <video id="video" playsinline muted></video>
+      <div class="scan-frame" aria-hidden="true">
+        <span class="corner tl"></span>
+        <span class="corner tr"></span>
+        <span class="corner bl"></span>
+        <span class="corner br"></span>
+      </div>
+      <div class="camera-buttons">
+        <button id="torchBtn" class="icon-btn" hidden type="button" aria-label="Torcia">🔦</button>
+        <button id="flipBtn" class="icon-btn" hidden type="button" aria-label="Cambia fotocamera">🔄</button>
+      </div>
+      <div class="camera-placeholder" id="cameraPlaceholder">
+        <span class="ph-icon">📷</span>
+        <span>Premi <strong>Avvia scanner</strong> per iniziare</span>
+      </div>
+    </section>
+
+    <div class="status" id="status" data-state="idle" role="status" aria-live="polite">Pronto</div>
+
+    <div class="controls">
+      <button id="toggleCameraBtn" class="primary-btn" type="button">▶ Avvia scanner</button>
+    </div>
+
+    <div class="manual-add">
+      <input type="text" id="manualInput" placeholder="Pettorale a mano…" autocomplete="off"
+             autocapitalize="characters" enterkeyhint="done">
+      <button id="manualAddBtn" type="button">Aggiungi</button>
+    </div>
+
+    <section class="list-section">
+      <div class="list-header">
+        <h2>Scansionati (<span id="listCount">0</span>)</h2>
+        <div class="list-actions">
+          <button id="exportBtn" class="ghost-btn" type="button">⬇ CSV</button>
+          <button id="clearBtn" class="ghost-btn danger" type="button">🗑 Svuota</button>
+        </div>
+      </div>
+      <ul class="bib-list" id="bibList"></ul>
+      <p class="empty-hint" id="emptyHint">Nessun pettorale ancora scansionato.</p>
+    </section>
+  </main>
+
+  <canvas id="canvas" hidden></canvas>
+
+  <noscript>Questa app richiede JavaScript abilitato.</noscript>
+
+  <script src="lib/jsqr.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
