@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #222; }
+
+  table { border-collapse: collapse; }
+
+  .layout { width: 100%; }
+  .layout td { vertical-align: top; }
+
+  .company-name { font-size: 22px; font-weight: 900; color: #1e3461; letter-spacing: 1px; line-height: 1; margin-bottom: 3px; }
+  .company-subtitle { font-size: 9px; color: #555; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
+  .company-details { font-size: 10px; color: #333; line-height: 1.8; }
+
+  .brands-label { font-size: 8px; text-transform: uppercase; letter-spacing: 1.5px; color: #888; margin-bottom: 5px; font-weight: 700; text-align: right; }
+  .brand-box { border: 1.5px solid #1e3461; color: #1e3461; font-size: 10px; font-weight: 800; text-align: center; padding: 5px 10px; letter-spacing: 1px; width: 70px; }
+
+  .sep { border: none; border-top: 2px solid #1e3461; margin: 12px 0 16px; }
+
+  .doc-title { font-size: 28px; font-weight: 900; color: #1e3461; letter-spacing: 2px; }
+  .doc-meta td { padding: 2px 0 2px 12px; font-size: 11px; }
+  .doc-meta td.lbl { color: #666; }
+  .doc-meta td.val { font-weight: 700; min-width: 120px; border-bottom: 1px solid #bbb; }
+  .validita { font-size: 10px; color: #444; text-align: right; margin-top: 3px; }
+
+  .sec-header { background: #1e3461; color: white; font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 6px 10px; margin-bottom: 0; }
+
+  .client-table { width: 100%; border: 1px solid #ccc; margin-bottom: 16px; }
+  .client-table td { border: 1px solid #ccc; padding: 0; vertical-align: top; }
+  .fl { font-size: 8px; font-weight: 700; color: #1e3461; text-transform: uppercase; letter-spacing: 0.8px; padding: 4px 7px 1px; display: block; }
+  .fv { font-size: 11px; padding: 1px 7px 6px; display: block; min-height: 18px; }
+
+  .items-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  .items-table th { background: #1e3461; color: white; padding: 7px; font-size: 9px; font-weight: 700; letter-spacing: 0.4px; text-align: center; border-right: 1px solid #2a4a80; }
+  .items-table th.left { text-align: left; }
+  .items-table td { padding: 7px; font-size: 11px; border-bottom: 1px solid #dde; border-right: 1px solid #eef; text-align: center; vertical-align: middle; }
+  .items-table tr.even td { background: #f8f9fb; }
+  .items-table td.code { font-family: monospace; color: #1e3461; font-weight: 700; font-size: 10px; text-align: left; }
+  .items-table td.desc { text-align: left; }
+  .items-table td.tot { font-weight: 700; }
+
+  .bl { font-size: 8px; font-weight: 700; color: #1e3461; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; margin-top: 10px; }
+  .bl.first { margin-top: 0; }
+  .blv { border-bottom: 1px solid #aaa; min-height: 16px; padding-bottom: 2px; color: #333; font-size: 11px; }
+
+  .totals-table { width: 230px; border: 1px solid #ccc; }
+  .totals-table td { padding: 6px 9px; font-size: 11px; border-bottom: 1px solid #dde; }
+  .totals-table td.lbl { color: #444; }
+  .totals-table td.amt { text-align: right; font-weight: 600; border-left: 1px solid #dde; min-width: 80px; }
+  .totals-table tr.tfinal td { background: #1e3461; color: white; font-size: 13px; font-weight: 700; border-color: #2a4a80; }
+
+  .footer { border-top: 1px solid #ccc; padding-top: 7px; font-size: 8.5px; color: #888; margin-top: 25px; width: 100%; }
+  .footer td { font-size: 8.5px; color: #888; }
+
+  .note-box { border: 1px solid #ccc; margin-bottom: 35px; }
+  .note-content { padding: 12px; font-size: 11px; line-height: 1.7; color: #333; }
+  .note-content p { margin-bottom: 5px; }
+
+  .sign-line { border-top: 1px solid #333; margin-bottom: 5px; }
+  .sign-label { font-size: 11px; font-weight: 700; color: #1e3461; text-align: center; }
+  .sign-sub { font-size: 10px; color: #888; font-style: italic; text-align: center; }
+
+  .page2 { margin-top: 40px; page-break-before: always; }
+</style>
+</head>
+<body>
+
+<!-- INTESTAZIONE -->
+<table class="layout" style="margin-bottom:18px;">
+  <tr>
+    <td style="width:60%;">
+      <div class="company-name">FC RAPPRESENTANZE</div>
+      <div class="company-subtitle">Agenzia Commerciale · Sicurezza e Automazione</div>
+      <div class="company-details">
+        Via Santa Margherita, 36 — 72015 Fasano (BR)<br>
+        P.IVA 01798440747<br>
+        Tel. 393 6633101<br>
+        info@fcrappresentanze.it · fcrappresentanze.it
+      </div>
+    </td>
+    <td style="width:40%; text-align:right; vertical-align:top;">
+      <div class="brands-label">Brand Trattati</div>
+      <table style="margin-left:auto; border-collapse:separate; border-spacing:3px;">
+        <tr>
+          <td class="brand-box">EL.MO.</td>
+          <td class="brand-box">RIB</td>
+        </tr>
+        <tr>
+          <td class="brand-box">4POWER</td>
+          <td class="brand-box">PROSPECTA</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<hr class="sep">
+
+<!-- TESTATA DOCUMENTO -->
+<table class="layout" style="margin-bottom:18px;">
+  <tr>
+    <td style="width:55%; vertical-align:bottom;">
+      <div class="doc-title">PREVENTIVO</div>
+    </td>
+    <td style="width:45%; vertical-align:bottom; text-align:right;">
+      <table class="doc-meta" style="margin-left:auto;">
+        <tr><td class="lbl">N°</td><td class="val">{{name}}</td></tr>
+        <tr><td class="lbl">Data</td><td class="val">{{dataPreventivo}}</td></tr>
+      </table>
+      <div class="validita">Validità {{#if dataScadenza}}fino al {{dataScadenza}}{{else}}30 giorni{{/if}}</div>
+    </td>
+  </tr>
+</table>
+
+<!-- DATI CLIENTE -->
+<div class="sec-header">DATI CLIENTE</div>
+<table class="client-table">
+  <tr>
+    <td style="width:55%">
+      <span class="fl">Ragione Sociale</span>
+      <span class="fv">{{clienteName}}</span>
+    </td>
+    <td>
+      <span class="fl">Referente</span>
+      <span class="fv"></span>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <span class="fl">Indirizzo</span>
+      <span class="fv"></span>
+    </td>
+    <td>
+      <span class="fl">Città / CAP</span>
+      <span class="fv"></span>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <span class="fl">P.IVA / C.F.</span>
+      <span class="fv"></span>
+    </td>
+    <td>
+      <span class="fl">Telefono / Email</span>
+      <span class="fv">{{emailDestinatario}}</span>
+    </td>
+  </tr>
+</table>
+
+<!-- RIGHE -->
+<div class="sec-header">ARTICOLI E PRODOTTI</div>
+<table class="items-table">
+  <thead>
+    <tr>
+      <th class="left" style="width:90px">Codice</th>
+      <th class="left">Descrizione</th>
+      <th style="width:50px">Q.tà</th>
+      <th style="width:70px">Prezzo<br>Unitario</th>
+      <th style="width:50px">Sconto<br>%</th>
+      <th style="width:75px">Totale</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each righe}}
+    <tr>
+      <td class="code">{{codiceProdotto}}</td>
+      <td class="desc">{{descrizione}}</td>
+      <td>{{quantita}}</td>
+      <td>€ {{prezzoUnitario}}</td>
+      <td>{{#if sconto}}{{sconto}}%{{else}}—{{/if}}</td>
+      <td class="tot">€ {{totaleRiga}}</td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+
+<!-- TOTALI + NOTE -->
+<table class="layout" style="margin-bottom:20px;">
+  <tr>
+    <td style="vertical-align:top; padding-right:18px;">
+      <div class="bl first">Modalità di Pagamento</div>
+      <div class="blv">{{#if note}}{{note}}{{/if}}</div>
+      <div class="bl">Validità Offerta</div>
+      <div class="blv">30 giorni dalla data del preventivo</div>
+      <div class="bl">Consegna</div>
+      <div class="blv"></div>
+      <div class="bl">Trasporto</div>
+      <div class="blv"></div>
+    </td>
+    <td style="vertical-align:top; width:235px;">
+      <table class="totals-table">
+        <tr><td class="lbl">Imponibile</td><td class="amt">€ {{totaleNetto}}</td></tr>
+        <tr><td class="lbl">Sconto globale</td><td class="amt">{{#if scontoGlobale}}{{scontoGlobale}}%{{else}}—{{/if}}</td></tr>
+        <tr><td class="lbl">Spese di trasporto</td><td class="amt">—</td></tr>
+        <tr><td class="lbl">IVA 22%</td><td class="amt"></td></tr>
+        <tr class="tfinal"><td class="lbl">TOTALE</td><td class="amt">€ {{totaleFinale}}</td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<!-- FOOTER PAG 1 -->
+<table class="footer">
+  <tr>
+    <td>FC Rappresentanze · Via Santa Margherita, 36, 72015 Fasano (BR) · P.IVA 01798440747</td>
+    <td style="text-align:right;">Tel. 393 6633101 · info@fcrappresentanze.it · fcrappresentanze.it &nbsp; <strong>Pag. 1</strong></td>
+  </tr>
+</table>
+
+<!-- PAGINA 2 -->
+<div class="page2">
+  <div class="note-box">
+    <div class="sec-header">NOTE E CONDIZIONI</div>
+    <div class="note-content">
+      <p>• I prezzi indicati sono in Euro e si intendono IVA esclusa. Il presente preventivo ha validità di 30 giorni dalla data di emissione, salvo diversa indicazione.</p>
+      <p>• La merce viaggia sempre a rischio e pericolo del committente, anche in caso di porto franco. Eventuali ritardi nelle consegne non daranno diritto alla risoluzione del contratto né a indennizzi.</p>
+      <p>• Per accettazione, restituire copia firmata del presente preventivo a mezzo email.</p>
+    </div>
+  </div>
+
+  <table class="layout" style="margin-top:35px;">
+    <tr>
+      <td style="width:44%; text-align:center;">
+        <div class="sign-line"></div>
+        <div class="sign-label">FC RAPPRESENTANZE</div>
+        <div class="sign-sub">(timbro e firma)</div>
+      </td>
+      <td style="width:12%;"></td>
+      <td style="width:44%; text-align:center;">
+        <div class="sign-line"></div>
+        <div class="sign-label">PER ACCETTAZIONE</div>
+        <div class="sign-sub">(timbro e firma del cliente)</div>
+      </td>
+    </tr>
+  </table>
+
+  <table class="footer" style="margin-top:60px;">
+    <tr>
+      <td>FC Rappresentanze · Via Santa Margherita, 36, 72015 Fasano (BR) · P.IVA 01798440747</td>
+      <td style="text-align:right;">Tel. 393 6633101 · info@fcrappresentanze.it · fcrappresentanze.it &nbsp; <strong>Pag. 2</strong></td>
+    </tr>
+  </table>
+</div>
+
+</body>
+</html>

@@ -1,5 +1,9 @@
 """
 Database CRUD operations for the email order processor.
+
+By default uses SQLite. If EspoCRM is configured (via set_backend),
+all business data operations are delegated to the EspoCRM REST API.
+The telegram_pending table always uses SQLite regardless of backend.
 """
 
 from __future__ import annotations
@@ -8,10 +12,39 @@ import json
 from typing import Optional
 from .models import get_connection
 
+# ── Backend selection ─────────────────────────────────────────────────────────
 
-# ── Clienti ──────────────────────────────────────────────────────────────────
+_espocrm: Optional[object] = None  # espocrm_manager module, or None for SQLite
+
+
+def set_backend(cfg: dict) -> None:
+    """
+    Call this after loading config.yaml.
+    If cfg contains an 'espocrm' block with a url, switches to EspoCRM backend
+    and initialises a minimal SQLite DB just for telegram_pending.
+    """
+    global _espocrm
+    espo_cfg = cfg.get("espocrm", {})
+    if espo_cfg.get("url"):
+        from database import espocrm_manager
+        espocrm_manager.init(espo_cfg)
+        _espocrm = espocrm_manager
+        # Keep telegram_pending in SQLite (internal transient state)
+        from database.models import init_pending_db
+        init_pending_db()
+    else:
+        _espocrm = None
+
+
+def using_espocrm() -> bool:
+    return _espocrm is not None
+
+
+# ── Clienti ───────────────────────────────────────────────────────────────────
 
 def get_cliente_by_email(email: str) -> Optional[dict]:
+    if _espocrm:
+        return _espocrm.get_cliente_by_email(email)
     conn = get_connection()
     row = conn.execute(
         "SELECT * FROM clienti WHERE lower(email) = lower(?)", (email,)
@@ -21,7 +54,8 @@ def get_cliente_by_email(email: str) -> Optional[dict]:
 
 
 def get_cliente_by_nome(nome: str) -> Optional[dict]:
-    """Fuzzy search by name (LIKE)."""
+    if _espocrm:
+        return _espocrm.get_cliente_by_nome(nome)
     conn = get_connection()
     row = conn.execute(
         "SELECT * FROM clienti WHERE lower(nome) LIKE lower(?) OR lower(azienda) LIKE lower(?)",
@@ -32,6 +66,8 @@ def get_cliente_by_nome(nome: str) -> Optional[dict]:
 
 
 def get_all_clienti() -> list[dict]:
+    if _espocrm:
+        return _espocrm.get_all_clienti()
     conn = get_connection()
     rows = conn.execute("SELECT * FROM clienti ORDER BY nome").fetchall()
     conn.close()
@@ -39,7 +75,9 @@ def get_all_clienti() -> list[dict]:
 
 
 def upsert_cliente(codice: str, nome: str, email: str = None,
-                   azienda: str = None, note: str = None) -> int:
+                   azienda: str = None, note: str = None):
+    if _espocrm:
+        return _espocrm.upsert_cliente(codice, nome, email, azienda, note)
     conn = get_connection()
     conn.execute("""
         INSERT INTO clienti (codice, nome, email, azienda, note)
@@ -59,6 +97,8 @@ def upsert_cliente(codice: str, nome: str, email: str = None,
 # ── Articoli ──────────────────────────────────────────────────────────────────
 
 def get_articolo_by_codice(codice: str) -> Optional[dict]:
+    if _espocrm:
+        return _espocrm.get_articolo_by_codice(codice)
     conn = get_connection()
     row = conn.execute(
         "SELECT * FROM articoli WHERE lower(codice) = lower(?)", (codice,)
@@ -68,6 +108,8 @@ def get_articolo_by_codice(codice: str) -> Optional[dict]:
 
 
 def get_articolo_by_descrizione(descrizione: str) -> Optional[dict]:
+    if _espocrm:
+        return _espocrm.get_articolo_by_descrizione(descrizione)
     conn = get_connection()
     row = conn.execute(
         "SELECT * FROM articoli WHERE lower(descrizione) LIKE lower(?)",
@@ -78,6 +120,8 @@ def get_articolo_by_descrizione(descrizione: str) -> Optional[dict]:
 
 
 def get_all_articoli() -> list[dict]:
+    if _espocrm:
+        return _espocrm.get_all_articoli()
     conn = get_connection()
     rows = conn.execute("SELECT * FROM articoli ORDER BY codice").fetchall()
     conn.close()
@@ -85,7 +129,9 @@ def get_all_articoli() -> list[dict]:
 
 
 def upsert_articolo(codice: str, descrizione: str, unita: str = "pz",
-                    note: str = None) -> int:
+                    note: str = None):
+    if _espocrm:
+        return _espocrm.upsert_articolo(codice, descrizione, unita, note)
     conn = get_connection()
     conn.execute("""
         INSERT INTO articoli (codice, descrizione, unita, note)
@@ -103,12 +149,9 @@ def upsert_articolo(codice: str, descrizione: str, unita: str = "pz",
 
 # ── Listini ───────────────────────────────────────────────────────────────────
 
-def get_prezzo(cliente_id: int, articolo_id: int,
-               data: str = None) -> Optional[float]:
-    """
-    Return the price for a given customer/article pair.
-    If data is provided, only return prices valid on that date.
-    """
+def get_prezzo(cliente_id, articolo_id, data: str = None) -> Optional[float]:
+    if _espocrm:
+        return _espocrm.get_prezzo(cliente_id, articolo_id, data)
     conn = get_connection()
     query = """
         SELECT prezzo, sconto_pct FROM listini
@@ -134,7 +177,9 @@ def get_prezzo(cliente_id: int, articolo_id: int,
     return round(prezzo * (1 - sconto / 100), 4)
 
 
-def get_listino_cliente(cliente_id: int) -> list[dict]:
+def get_listino_cliente(cliente_id) -> list[dict]:
+    if _espocrm:
+        return _espocrm.get_listino_cliente(cliente_id)
     conn = get_connection()
     rows = conn.execute("""
         SELECT l.*, a.codice AS articolo_codice, a.descrizione AS articolo_desc
@@ -146,9 +191,13 @@ def get_listino_cliente(cliente_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def upsert_listino(cliente_id: int, articolo_id: int, prezzo: float,
+def upsert_listino(cliente_id, articolo_id, prezzo: float,
                    sconto_pct: float = 0, valido_dal: str = None,
                    valido_al: str = None) -> None:
+    if _espocrm:
+        return _espocrm.upsert_listino(
+            cliente_id, articolo_id, prezzo, sconto_pct, valido_dal, valido_al
+        )
     conn = get_connection()
     conn.execute("""
         INSERT INTO listini (cliente_id, articolo_id, prezzo, sconto_pct, valido_dal, valido_al)
@@ -166,13 +215,17 @@ def upsert_listino(cliente_id: int, articolo_id: int, prezzo: float,
 # ── Aziende ───────────────────────────────────────────────────────────────────
 
 def get_all_aziende() -> list[dict]:
+    if _espocrm:
+        return _espocrm.get_all_aziende()
     conn = get_connection()
     rows = conn.execute("SELECT * FROM aziende ORDER BY nome").fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def upsert_azienda(nome: str, email: str, note: str = None) -> int:
+def upsert_azienda(nome: str, email: str, note: str = None):
+    if _espocrm:
+        return _espocrm.upsert_azienda(nome, email, note)
     conn = get_connection()
     conn.execute("""
         INSERT INTO aziende (nome, email, note)
@@ -188,9 +241,14 @@ def upsert_azienda(nome: str, email: str, note: str = None) -> int:
 # ── Ordini ────────────────────────────────────────────────────────────────────
 
 def crea_ordine(email_uid: str, email_da: str, email_oggetto: str,
-                email_data: str, cliente_id: int = None,
-                azienda_id: int = None, note_agente: str = None,
-                json_ordine: str = None) -> int:
+                email_data: str, cliente_id=None,
+                azienda_id=None, note_agente: str = None,
+                json_ordine: str = None):
+    if _espocrm:
+        return _espocrm.crea_ordine(
+            email_uid, email_da, email_oggetto, email_data,
+            cliente_id, azienda_id, note_agente, json_ordine
+        )
     conn = get_connection()
     cur = conn.execute("""
         INSERT INTO ordini
@@ -213,9 +271,14 @@ def crea_ordine(email_uid: str, email_da: str, email_oggetto: str,
     return ordine_id
 
 
-def aggiungi_riga(ordine_id: int, descrizione: str, quantita: float,
+def aggiungi_riga(ordine_id, descrizione: str, quantita: float,
                   prezzo_ricevuto: float = None, prezzo_corretto: float = None,
                   codice_articolo: str = None) -> None:
+    if _espocrm:
+        return _espocrm.aggiungi_riga(
+            ordine_id, descrizione, quantita,
+            prezzo_ricevuto, prezzo_corretto, codice_articolo
+        )
     differenza = None
     ok = 0
 
@@ -235,14 +298,18 @@ def aggiungi_riga(ordine_id: int, descrizione: str, quantita: float,
     conn.close()
 
 
-def get_ordine(ordine_id: int) -> Optional[dict]:
+def get_ordine(ordine_id) -> Optional[dict]:
+    if _espocrm:
+        return _espocrm.get_ordine(ordine_id)
     conn = get_connection()
     row = conn.execute("SELECT * FROM ordini WHERE id = ?", (ordine_id,)).fetchone()
     conn.close()
     return dict(row) if row else None
 
 
-def get_righe_ordine(ordine_id: int) -> list[dict]:
+def get_righe_ordine(ordine_id) -> list[dict]:
+    if _espocrm:
+        return _espocrm.get_righe_ordine(ordine_id)
     conn = get_connection()
     rows = conn.execute(
         "SELECT * FROM righe_ordine WHERE ordine_id = ?", (ordine_id,)
@@ -251,7 +318,9 @@ def get_righe_ordine(ordine_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def aggiorna_stato_ordine(ordine_id: int, stato: str) -> None:
+def aggiorna_stato_ordine(ordine_id, stato: str) -> None:
+    if _espocrm:
+        return _espocrm.aggiorna_stato_ordine(ordine_id, stato)
     conn = get_connection()
     conn.execute("""
         UPDATE ordini SET stato = ?, aggiornato_il = datetime('now')
@@ -262,6 +331,8 @@ def aggiorna_stato_ordine(ordine_id: int, stato: str) -> None:
 
 
 def email_uid_esiste(uid: str) -> bool:
+    if _espocrm:
+        return _espocrm.email_uid_esiste(uid)
     conn = get_connection()
     row = conn.execute(
         "SELECT id FROM ordini WHERE email_uid = ?", (uid,)
@@ -270,29 +341,29 @@ def email_uid_esiste(uid: str) -> bool:
     return row is not None
 
 
-# ── Telegram pending ──────────────────────────────────────────────────────────
+# ── Telegram pending (always SQLite) ──────────────────────────────────────────
 
-def salva_pending(ordine_id: int, message_id: int, chat_id: int) -> None:
+def salva_pending(ordine_id, message_id: int, chat_id: int) -> None:
     conn = get_connection()
     conn.execute("""
         INSERT INTO telegram_pending (ordine_id, message_id, chat_id)
         VALUES (?, ?, ?)
-    """, (ordine_id, message_id, chat_id))
+    """, (str(ordine_id), message_id, chat_id))
     conn.commit()
     conn.close()
 
 
-def get_pending_by_ordine(ordine_id: int) -> Optional[dict]:
+def get_pending_by_ordine(ordine_id) -> Optional[dict]:
     conn = get_connection()
     row = conn.execute(
-        "SELECT * FROM telegram_pending WHERE ordine_id = ?", (ordine_id,)
+        "SELECT * FROM telegram_pending WHERE ordine_id = ?", (str(ordine_id),)
     ).fetchone()
     conn.close()
     return dict(row) if row else None
 
 
-def rimuovi_pending(ordine_id: int) -> None:
+def rimuovi_pending(ordine_id) -> None:
     conn = get_connection()
-    conn.execute("DELETE FROM telegram_pending WHERE ordine_id = ?", (ordine_id,))
+    conn.execute("DELETE FROM telegram_pending WHERE ordine_id = ?", (str(ordine_id),))
     conn.commit()
     conn.close()
