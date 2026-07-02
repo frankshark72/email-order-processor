@@ -136,6 +136,51 @@ foreach (['BeforeSave', 'AfterSave', 'AfterRemove'] as $name) {
     echo "$name: $out";
 }
 
+// --- CPreventivo hooks ---
+$dir2 = '/var/www/html/custom/Espo/Custom/Hooks/CPreventivo';
+if (!is_dir($dir2)) {
+    mkdir($dir2, 0755, true);
+}
+
+$beforeSavePreventivo = <<<'PHP'
+<?php
+namespace Espo\Custom\Hooks\CPreventivo;
+use Espo\ORM\Entity;
+
+class BeforeSave
+{
+    public static $order = 9;
+
+    public function __construct(
+        private \Espo\Core\ORM\EntityManager $entityManager
+    ) {}
+
+    public function beforeSave(Entity $entity, array $options = []): void
+    {
+        $clienteId = $entity->get('clienteId');
+        if (!$clienteId) return;
+        if (!$entity->isNew() && !$entity->isAttributeChanged('clienteId')) return;
+
+        $condizioni = $this->entityManager->getRepository('CCondizioniCommerciali')
+            ->where(['condizioniCommercialiClienteId' => $clienteId, 'attivo' => true])
+            ->findOne();
+
+        if (!$condizioni) return;
+
+        $entity->set('tipoCalcoloTrasporto', $condizioni->get('tipoCalcoloTrasporto'));
+        $entity->set('portoFranco', $condizioni->get('portoFranco'));
+        $entity->set('sogliaPortoFranco', $condizioni->get('sogliaPortoFranco'));
+        $entity->set('sogliaPortoFrancoCurrency', $condizioni->get('sogliaPortoFrancoCurrency'));
+        $entity->set('descrizioneTrasporto', $condizioni->get('descrizioneTrasporto'));
+        $entity->set('noteTrasporto', $condizioni->get('noteTrasporto'));
+    }
+}
+PHP;
+
+file_put_contents($dir2 . '/BeforeSave.php', $beforeSavePreventivo);
+$out = shell_exec('php -l ' . $dir2 . '/BeforeSave.php');
+echo "CPreventivo BeforeSave: $out";
+
 // Clear cache
 shell_exec('rm -rf /var/www/html/data/cache/*');
 echo "Cache cleared.\n";
