@@ -29,7 +29,7 @@ class EspoCRMClient:
         )
     """
 
-    def __init__(self, url: str, api_key: str):
+    def __init__(self, url: str, api_key: str, default_assigned_user_id: str = None):
         self.base_url = url.rstrip("/")
         self.api_key = api_key
         self.session = requests.Session()
@@ -37,16 +37,22 @@ class EspoCRMClient:
             "X-Api-Key": api_key,
             "Content-Type": "application/json",
         })
-        self._current_user_id = None
+        self._default_user_id = default_assigned_user_id
 
-    def _get_current_user_id(self) -> str:
-        if self._current_user_id is None:
+    def _get_default_user_id(self) -> Optional[str]:
+        if self._default_user_id is None:
             try:
-                user = self._request("GET", "App/user")
-                self._current_user_id = user.get("id", "1")
-            except Exception:
-                self._current_user_id = "1"
-        return self._current_user_id
+                users = self._request("GET",
+                    "User?where[0][type]=isActive&select=id,name,type&maxSize=10&orderBy=createdAt&order=asc")
+                user_list = users.get("list", [])
+                for u in user_list:
+                    if u.get("type") == "regular":
+                        self._default_user_id = u["id"]
+                        logger.info("Auto-assign tasks to: %s (%s)", u.get("name"), u["id"])
+                        break
+            except Exception as e:
+                logger.warning("Could not fetch users: %s", e)
+        return self._default_user_id
 
     def _request(self, method: str, endpoint: str, data: dict = None) -> dict:
         url = f"{self.base_url}/api/v1/{endpoint}"
@@ -96,7 +102,7 @@ class EspoCRMClient:
         else:
             tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
             payload["dateEnd"] = tomorrow
-        payload["assignedUserId"] = assigned_user_id or self._get_current_user_id()
+        payload["assignedUserId"] = assigned_user_id or self._get_default_user_id()
         if account_id:
             payload["parentType"] = "Account"
             payload["parentId"] = account_id
@@ -182,4 +188,5 @@ def client_from_config(cfg: dict) -> EspoCRMClient:
     return EspoCRMClient(
         url=espo["url"],
         api_key=espo["api_key"],
+        default_assigned_user_id=espo.get("assigned_user_id"),
     )
