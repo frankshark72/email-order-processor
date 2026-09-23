@@ -131,9 +131,19 @@ class IMAPReader:
     def mark_as_read(self, uid: str) -> None:
         self._conn.uid("store", uid, "+FLAGS", "\\Seen")
 
-    def fetch_all_unread(self) -> list[EmailMessage]:
-        """Fetch all unread messages and return parsed EmailMessage list."""
-        uids = self.get_unread_uids()
+    def get_unread_uids_since(self, since_date: datetime) -> list[str]:
+        date_str = since_date.strftime("%d-%b-%Y")
+        _, data = self._conn.uid("search", None, f'(UNSEEN SINCE "{date_str}")')
+        if not data or not data[0]:
+            return []
+        return data[0].decode().split()
+
+    def fetch_all_unread(self, since_date: datetime = None) -> list[EmailMessage]:
+        """Fetch unread messages, optionally filtered by date."""
+        if since_date:
+            uids = self.get_unread_uids_since(since_date)
+        else:
+            uids = self.get_unread_uids()
         messages = []
         for uid in uids:
             msg = self.fetch_message(uid)

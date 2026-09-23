@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -42,14 +43,16 @@ def load_config() -> dict:
 
 def cmd_process(cfg: dict) -> None:
     from agent.task_processor import processor_from_config
-    proc = processor_from_config(cfg)
+    since = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    proc = processor_from_config(cfg, since_date=since)
     n = proc.process_all()
     print(f"\n✅ Processate {n} email → task creati in EspoCRM")
 
 
 def cmd_loop(cfg: dict) -> None:
     from agent.task_processor import processor_from_config
-    proc = processor_from_config(cfg)
+    since = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    proc = processor_from_config(cfg, since_date=since)
     interval = cfg.get("agent", {}).get("poll_interval_seconds", 120)
     print(f"🔄 Polling ogni {interval} secondi. Ctrl+C per fermare.")
 

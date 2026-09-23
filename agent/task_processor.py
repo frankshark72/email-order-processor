@@ -94,6 +94,7 @@ class TaskProcessor:
         notifier: OpenClawNotifier,
         skip_informativa: bool = True,
         mark_as_read: bool = True,
+        since_date: datetime = None,
     ):
         self.mailboxes = mailboxes
         self.classifier = classifier
@@ -101,6 +102,7 @@ class TaskProcessor:
         self.notifier = notifier
         self.skip_informativa = skip_informativa
         self.mark_as_read = mark_as_read
+        self.since_date = since_date
         _init_tracking_db()
 
     def process_all(self) -> int:
@@ -125,7 +127,7 @@ class TaskProcessor:
         processed = 0
 
         with reader:
-            messages = reader.fetch_all_unread()
+            messages = reader.fetch_all_unread(since_date=self.since_date)
             for msg in messages:
                 if _is_processed(mailbox_label, msg.uid):
                     continue
@@ -231,7 +233,7 @@ class TaskProcessor:
         return task_id
 
 
-def processor_from_config(cfg: dict) -> TaskProcessor:
+def processor_from_config(cfg: dict, since_date: datetime = None) -> TaskProcessor:
     from .email_classifier import classifier_from_config
     from .espocrm_client import client_from_config
     from .openclaw_notifier import notifier_from_config
@@ -243,4 +245,5 @@ def processor_from_config(cfg: dict) -> TaskProcessor:
         notifier=notifier_from_config(cfg),
         skip_informativa=cfg.get("agent", {}).get("skip_informativa", True),
         mark_as_read=cfg.get("agent", {}).get("segna_come_letta", True),
+        since_date=since_date,
     )
