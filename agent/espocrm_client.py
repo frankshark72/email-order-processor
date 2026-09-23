@@ -43,10 +43,11 @@ class EspoCRMClient:
         if self._default_user_id is None:
             try:
                 users = self._request("GET",
-                    "User?where[0][type]=isActive&select=id,name,type&maxSize=10&orderBy=createdAt&order=asc")
+                    "User?where[0][type]=isTrue&where[0][attribute]=isActive"
+                    "&select=id,name,type&maxSize=10&orderBy=createdAt&order=asc")
                 user_list = users.get("list", [])
                 for u in user_list:
-                    if u.get("type") == "regular":
+                    if u.get("type") in ("regular", "admin"):
                         self._default_user_id = u["id"]
                         logger.info("Auto-assign tasks to: %s (%s)", u.get("name"), u["id"])
                         break
