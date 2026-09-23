@@ -37,6 +37,16 @@ class EspoCRMClient:
             "X-Api-Key": api_key,
             "Content-Type": "application/json",
         })
+        self._current_user_id = None
+
+    def _get_current_user_id(self) -> str:
+        if self._current_user_id is None:
+            try:
+                user = self._request("GET", "App/user")
+                self._current_user_id = user.get("id", "1")
+            except Exception:
+                self._current_user_id = "1"
+        return self._current_user_id
 
     def _request(self, method: str, endpoint: str, data: dict = None) -> dict:
         url = f"{self.base_url}/api/v1/{endpoint}"
@@ -86,8 +96,7 @@ class EspoCRMClient:
         else:
             tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
             payload["dateEnd"] = tomorrow
-        if assigned_user_id:
-            payload["assignedUserId"] = assigned_user_id
+        payload["assignedUserId"] = assigned_user_id or self._get_current_user_id()
         if account_id:
             payload["parentType"] = "Account"
             payload["parentId"] = account_id
