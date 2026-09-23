@@ -44,6 +44,14 @@ class EspoCRMClient:
             resp = self.session.request(method, url, json=data, timeout=30)
             resp.raise_for_status()
             return resp.json() if resp.content else {}
+        except requests.exceptions.HTTPError as e:
+            body = ""
+            try:
+                body = resp.text[:500]
+            except Exception:
+                pass
+            logger.error("EspoCRM API error: %s %s → %s | Body: %s", method, endpoint, e, body)
+            raise
         except requests.exceptions.RequestException as e:
             logger.error("EspoCRM API error: %s %s → %s", method, endpoint, e)
             raise
