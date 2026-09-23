@@ -67,12 +67,12 @@ def _mark_processed(mailbox: str, uid: str, from_addr: str,
 
 
 TASK_NAME_TEMPLATES = {
-    "ordine": "📦 Ordine da {cliente} — {oggetto}",
-    "preventivo": "📋 Preventivo per {cliente} — {oggetto}",
-    "transito": "📨 Ordine in transito — {oggetto}",
-    "risposta": "📩 Risposta {mandante} — {oggetto}",
-    "informativa": "ℹ️ Info — {oggetto}",
-    "altro": "📧 Email — {oggetto}",
+    "ordine": "[ORD] Ordine da {cliente} - {oggetto}",
+    "preventivo": "[PREV] Preventivo per {cliente} - {oggetto}",
+    "transito": "[TRANS] Ordine in transito - {oggetto}",
+    "risposta": "[RISP] Risposta {mandante} - {oggetto}",
+    "informativa": "[INFO] Info - {oggetto}",
+    "altro": "[EMAIL] Email - {oggetto}",
 }
 
 PRIORITY_MAP = {
@@ -182,33 +182,45 @@ class TaskProcessor:
         description = "\n".join(description_parts)
 
         account_id = None
-        if classification.cliente_email:
-            account = self.espocrm.find_account_by_email(classification.cliente_email)
-            if account:
-                account_id = account["id"]
-        if not account_id and classification.cliente_nome:
-            account = self.espocrm.find_account_by_name(classification.cliente_nome)
-            if account:
-                account_id = account["id"]
+        try:
+            if classification.cliente_email:
+                account = self.espocrm.find_account_by_email(classification.cliente_email)
+                if account:
+                    account_id = account["id"]
+            if not account_id and classification.cliente_nome:
+                account = self.espocrm.find_account_by_name(classification.cliente_nome)
+                if account:
+                    account_id = account["id"]
+        except Exception as e:
+            logger.warning("Account lookup failed, continuing without: %s", e)
 
-        task_id = self.espocrm.create_task(
-            name=task_name[:150],
-            description=description,
-            priority=PRIORITY_MAP.get(classification.priorita, "Normal"),
-            account_id=account_id,
-        )
+        try:
+            task_id = self.espocrm.create_task(
+                name=task_name[:150],
+                description=description,
+                priority=PRIORITY_MAP.get(classification.priorita, "Normal"),
+                account_id=account_id,
+            )
+        except Exception as e:
+            logger.error("Task creation failed: %s", e)
+            _mark_processed(mailbox, msg.uid, msg.from_addr,
+                            msg.subject, classification.categoria, "ERROR")
+            return None
 
         logger.info("[%s] Created Task %s: %s", mailbox, task_id, task_name)
 
-        self.notifier.notify_new_task(
-            categoria=classification.categoria,
-            oggetto=oggetto,
-            cliente=cliente,
-            mandante=mandante,
-            riassunto=classification.riassunto,
-            azione=classification.azione_suggerita,
-            mailbox=mailbox,
-        )
+        try:
+            self.notifier.notify_new_task(
+                categoria=classification.categoria,
+                oggetto=oggetto,
+                cliente=cliente,
+                mandante=mandante,
+                riassunto=classification.riassunto,
+                azione=classification.azione_suggerita,
+                mailbox=mailbox,
+            )
+        except Exception as e:
+            logger.warning("Notification failed: %s", e)
 
         _mark_processed(mailbox, msg.uid, msg.from_addr,
                         msg.subject, classification.categoria, task_id)

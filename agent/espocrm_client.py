@@ -103,17 +103,20 @@ class EspoCRMClient:
     # ── Account (client) lookup ──────────────────────────────────
 
     def find_account_by_email(self, email: str) -> Optional[dict]:
-        endpoint = (
-            "Account?where[0][type]=linkedWith&where[0][attribute]=emailAddresses"
-            f"&where[0][value][]={email}&select=id,name"
-        )
-        result = self._request("GET", endpoint)
+        endpoint = f"Account?where[0][type]=textFilter&where[0][value]={email}&select=id,name&maxSize=1"
+        try:
+            result = self._request("GET", endpoint)
+        except Exception:
+            return None
         records = result.get("list", [])
         return records[0] if records else None
 
     def find_account_by_name(self, name: str) -> Optional[dict]:
         endpoint = f"Account?where[0][type]=contains&where[0][attribute]=name&where[0][value]={name}&select=id,name"
-        result = self._request("GET", endpoint)
+        try:
+            result = self._request("GET", endpoint)
+        except Exception:
+            return None
         records = result.get("list", [])
         return records[0] if records else None
 
@@ -125,11 +128,11 @@ class EspoCRMClient:
     # ── Contact lookup ───────────────────────────────────────────
 
     def find_contact_by_email(self, email: str) -> Optional[dict]:
-        endpoint = (
-            "Contact?where[0][type]=linkedWith&where[0][attribute]=emailAddresses"
-            f"&where[0][value][]={email}&select=id,name,accountId,accountName"
-        )
-        result = self._request("GET", endpoint)
+        endpoint = f"Contact?where[0][type]=textFilter&where[0][value]={email}&select=id,name,accountId,accountName&maxSize=1"
+        try:
+            result = self._request("GET", endpoint)
+        except Exception:
+            return None
         records = result.get("list", [])
         return records[0] if records else None
 
