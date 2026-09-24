@@ -53,13 +53,15 @@ class IMAPReader:
     """
 
     def __init__(self, host: str, port: int, username: str, password: str,
-                 mailbox: str = "INBOX", use_ssl: bool = True):
+                 mailbox: str = "INBOX", use_ssl: bool = True,
+                 verify_ssl: bool = True):
         self.host = host
         self.port = port
         self.username = username
         self.password = password
         self.mailbox = mailbox
         self.use_ssl = use_ssl
+        self.verify_ssl = verify_ssl
         self._conn: Optional[imaplib.IMAP4_SSL | imaplib.IMAP4] = None
 
     # ── Connection ────────────────────────────────────────────────────────────
@@ -67,6 +69,9 @@ class IMAPReader:
     def connect(self) -> None:
         if self.use_ssl:
             context = ssl.create_default_context()
+            if not self.verify_ssl:
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
             self._conn = imaplib.IMAP4_SSL(self.host, self.port, ssl_context=context)
         else:
             self._conn = imaplib.IMAP4(self.host, self.port)

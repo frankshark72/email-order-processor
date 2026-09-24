@@ -122,6 +122,7 @@ class TaskProcessor:
             username=mb["username"],
             password=mb["password"],
             mailbox=mb.get("mailbox", "INBOX"),
+            verify_ssl=mb.get("verify_ssl", True),
         )
         mailbox_label = mb.get("label", mb["username"])
         processed = 0
