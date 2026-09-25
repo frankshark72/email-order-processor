@@ -1,0 +1,59 @@
+# Email Order Processor — Configurazione di esempio
+# Copia in config.yaml e compila con i valori reali.
+# config.yaml NON va committato (già in .gitignore).
+
+# ── Email in entrata (IMAP) ───────────────────────────────────────────────────
+email:
+  host: imap.gmail.com          # Gmail: imap.gmail.com | Aruba: imaps.aruba.it
+  port: 993
+  ssl: true
+  username: ""                  # oppure usa env var EMAIL_USERNAME
+  password: ""                  # oppure usa env var EMAIL_PASSWORD
+  mailbox: INBOX
+  filtro_mittenti: []           # es: ["@miofornitore.it"] — lascia vuoto per accettare tutti
+
+# ── Email in uscita (SMTP) ────────────────────────────────────────────────────
+smtp:
+  host: smtp.gmail.com          # Gmail: smtp.gmail.com | Aruba: smtps.aruba.it
+  port: 587
+  tls: true
+  ssl: false
+  username: ""                  # oppure usa env var SMTP_USERNAME
+  password: ""                  # oppure usa env var SMTP_PASSWORD
+  from_name: "Il Mio Negozio"   # oppure usa env var SMTP_FROM_NAME
+
+# ── Telegram ──────────────────────────────────────────────────────────────────
+telegram:
+  token: ""                     # oppure usa env var TELEGRAM_BOT_TOKEN
+  chat_id: 0                    # oppure usa env var TELEGRAM_CHAT_ID
+
+# ── Ollama (AI locale per estrazione ordini) ──────────────────────────────────
+# Ollama gira sulla VM host — da dentro Docker è raggiungibile via localhost
+# grazie a network_mode: host in docker-compose.yml
+ollama:
+  url: "http://localhost:11434"
+  model: "mistral:7b"           # altri modelli: llama3, phi3, gemma2
+
+# ── EspoCRM ───────────────────────────────────────────────────────────────────
+# Sostituisce SQLite come backend principale.
+# Lascia vuoto (rimuovi questa sezione) per usare SQLite locale.
+espocrm:
+  url: "http://192.168.1.X/espocrm"  # IP LAN della tua VM + path EspoCRM
+  api_key: ""                         # Admin → API Users → crea utente API → copia key
+
+  # Nomi delle entità in EspoCRM (modifica solo se hai usato nomi diversi)
+  entities:
+    clienti: Account
+    articoli: Prodotto
+    listini: Listino
+    aziende: Account
+    ordini: OrdineEmail
+    righe_ordine: RigaOrdine
+
+# ── Agente ────────────────────────────────────────────────────────────────────
+agent:
+  poll_interval_seconds: 120    # controlla nuove email ogni 2 minuti
+  price_tolerance_eur: 0.01     # tolleranza differenza prezzi (1 centesimo)
+  segna_come_letta: true        # segna l'email come letta dopo l'elaborazione
+  notifica_sempre: true         # notifica Telegram anche se i prezzi sono ok
+  azienda_default: ""           # nome azienda destinataria di default (da EspoCRM)

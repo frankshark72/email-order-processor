@@ -1,0 +1,12 @@
+[Unit]
+Description=Email to Task Processor (FC Rappresentanze)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/email-order-processor
+ExecStart=/usr/bin/python3 /root/email-order-processor/process_tasks.py process
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=120

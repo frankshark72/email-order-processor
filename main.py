@@ -115,8 +115,8 @@ def processa_email(cfg: dict) -> int:
 
             print(f"[PROCESSING] Email da {sender_email}: {msg.subject}")
 
-            # 1. Extract order with Claude AI
-            print("  → Estrazione ordine con Claude AI…")
+            # 1. Extract order with AI
+            print("  → Estrazione ordine con AI…")
             ordine = extractor.extract(msg)
             print(f"  → Estratte {len(ordine.righe)} righe | Confidenza: {ordine.confidenza}")
 
@@ -411,9 +411,6 @@ def main():
         print("Usa: python main.py help")
         sys.exit(1)
 
-    # Init DB
-    init_db()
-
     # Load config
     cfg_path = args[1] if len(args) > 1 and args[1].endswith(".yaml") else None
     try:
@@ -422,6 +419,11 @@ def main():
         print("❌ File config.yaml non trovato.")
         print("   Esegui prima: python main.py setup")
         sys.exit(1)
+
+    # Init backend (EspoCRM or SQLite)
+    db.set_backend(cfg)
+    if not db.using_espocrm():
+        init_db()
 
     COMMANDS[cmd](cfg)
 

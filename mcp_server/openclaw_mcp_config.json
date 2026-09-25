@@ -1,0 +1,51 @@
+{
+  "mcp": {
+    "servers": {
+      "clienti": {
+        "command": "python",
+        "args": ["/root/email-order-processor/mcp_server/mcp_clienti.py"],
+        "env": {
+          "ESPOCRM_URL": "http://100.79.250.23:8080",
+          "ESPOCRM_API_KEY": "YOUR_API_KEY_HERE",
+          "PYTHONPATH": "/root/email-order-processor/mcp_server"
+        }
+      },
+      "prodotti": {
+        "command": "python",
+        "args": ["/root/email-order-processor/mcp_server/mcp_prodotti.py"],
+        "env": {
+          "ESPOCRM_URL": "http://100.79.250.23:8080",
+          "ESPOCRM_API_KEY": "YOUR_API_KEY_HERE",
+          "PYTHONPATH": "/root/email-order-processor/mcp_server"
+        }
+      },
+      "task": {
+        "command": "python",
+        "args": ["/root/email-order-processor/mcp_server/mcp_task.py"],
+        "env": {
+          "ESPOCRM_URL": "http://100.79.250.23:8080",
+          "ESPOCRM_API_KEY": "YOUR_API_KEY_HERE",
+          "PYTHONPATH": "/root/email-order-processor/mcp_server"
+        }
+      },
+      "ordini": {
+        "command": "python",
+        "args": ["/root/email-order-processor/mcp_server/mcp_ordini.py"],
+        "env": {
+          "ESPOCRM_URL": "http://100.79.250.23:8080",
+          "ESPOCRM_API_KEY": "YOUR_API_KEY_HERE",
+          "PYTHONPATH": "/root/email-order-processor/mcp_server"
+        }
+      },
+      "chiamate": {
+        "command": "python",
+        "args": ["/root/email-order-processor/mcp_server/mcp_chiamate.py"],
+        "env": {
+          "ESPOCRM_URL": "http://100.79.250.23:8080",
+          "ESPOCRM_API_KEY": "YOUR_API_KEY_HERE",
+          "PYTHONPATH": "/root/email-order-processor/mcp_server"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,4 @@
+name,emailAddress,phoneNumber,billingAddressStreet,billingAddressCity,billingAddressPostalCode,website,zona,tipoAccount,frequenzaVisitaGiorni,referente,priorita,condizioniPagamento,latitudine,longitudine,description
+Rossi Srl,info@rossi.it,0832-123456,Via Roma 1,Lecce,73100,www.rossi.it,Leccese,cliente,30,Mario Rossi,alta,Netto 30,40.3516,18.1750,Cliente storico
+Bianchi Spa,bianchi@email.it,080-234567,Via Napoli 22,Bari,70100,,Barese,cliente,60,Lucia Bianchi,media,Netto 60,41.1177,16.8719,
+De Cecco Spa,ordini@dececco.it,0872-111000,Via dei Pastai 1,Fara San Martino,66015,www.dececco.it,Fornitore,fornitore,0,Ufficio Ordini,alta,Rimessa Diretta,42.0892,14.1992,Fornitore pasta

@@ -122,11 +122,58 @@ def run_wizard():
     print()
     tg_chat_id = _ask("Il tuo Chat ID Telegram")
 
-    # ── Anthropic API ─────────────────────────────────────────────
-    print("\n── 4. CLAUDE AI (Anthropic) ────────────────────────────")
-    print("Ottieni la chiave API da: https://console.anthropic.com")
+    # ── AI (Ollama) ───────────────────────────────────────────────
+    print("\n── 4. AI — OLLAMA (estrazione ordini) ──────────────────")
+    print("Ollama deve essere installato e in esecuzione localmente.")
+    print("Scaricalo da: https://ollama.com")
     print()
-    anthropic_key = _ask("Anthropic API Key")
+    ollama_url   = _ask("URL Ollama", "http://localhost:11434")
+    ollama_model = _ask("Modello Ollama", "mistral:7b")
+
+    # ── EspoCRM (opzionale) ───────────────────────────────────────
+    print("\n── 5. ESPOCRM (opzionale — lascia vuoto per usare SQLite) ──")
+    print("EspoCRM sostituisce il database SQLite locale.")
+    print("Assicurati di aver creato le entità personalizzate (vedi README).")
+    print()
+    espo_url = _ask("URL EspoCRM (es. http://192.168.1.100/espocrm)", "")
+
+    espo_block = ""
+    if espo_url:
+        espo_auth = _ask_choice(
+            "Metodo di autenticazione EspoCRM:",
+            {"1": {"label": "API Key (consigliato)"}, "2": {"label": "Username + Password"}},
+        )
+        if espo_auth == "1":
+            espo_api_key = _ask("API Key EspoCRM")
+            espo_block = f"""
+espocrm:
+  url: "{espo_url}"
+  api_key: "{espo_api_key}"
+  # Nomi entità personalizzabili (default mostrati):
+  entities:
+    clienti: Account
+    articoli: Prodotto
+    listini: Listino
+    aziende: Fornitore
+    ordini: OrdineEmail
+    righe_ordine: RigaOrdine
+"""
+        else:
+            espo_user = _ask("Username EspoCRM")
+            espo_pass = _ask("Password EspoCRM")
+            espo_block = f"""
+espocrm:
+  url: "{espo_url}"
+  username: "{espo_user}"
+  password: "{espo_pass}"
+  entities:
+    clienti: Account
+    articoli: Prodotto
+    listini: Listino
+    aziende: Fornitore
+    ordini: OrdineEmail
+    righe_ordine: RigaOrdine
+"""
 
     # ── Write config ──────────────────────────────────────────────
     config = f"""# Email Order Processor — Configurazione
@@ -154,10 +201,10 @@ telegram:
   token: "{tg_token}"
   chat_id: {tg_chat_id}
 
-anthropic:
-  api_key: "{anthropic_key}"
-  model: "claude-opus-4-6"
-
+ollama:
+  url: "{ollama_url}"
+  model: "{ollama_model}"
+{espo_block}
 agent:
   poll_interval_seconds: 120
   price_tolerance_eur: 0.01
@@ -171,12 +218,15 @@ agent:
 
     # ── Init database & seed ──────────────────────────────────────
     print()
-    do_seed = input("Vuoi inserire dati di esempio nel database? [S/n]: ").strip().lower()
-    if do_seed != "n":
-        from database.models import init_db
-        from database.seed import seed
-        init_db()
-        seed()
+    if not espo_url:
+        do_seed = input("Vuoi inserire dati di esempio nel database SQLite? [S/n]: ").strip().lower()
+        if do_seed != "n":
+            from database.models import init_db
+            from database.seed import seed
+            init_db()
+            seed()
+    else:
+        print("ℹ️  Backend EspoCRM configurato: i dati vanno inseriti direttamente in EspoCRM.")
 
     print()
     print("=" * 60)
