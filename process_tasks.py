@@ -148,6 +148,57 @@ def cmd_test_classify(cfg: dict) -> None:
         print(f"   Confidenza: {result.confidenza}")
 
 
+def cmd_daily_report(cfg: dict) -> None:
+    import sqlite3
+    from agent.task_processor import DB_PATH
+    from agent.openclaw_notifier import notifier_from_config
+
+    notifier = notifier_from_config(cfg)
+    today = datetime.now().strftime("%Y-%m-%d")
+    yesterday = (datetime.now() - __import__('datetime').timedelta(days=1)).strftime("%Y-%m-%d")
+
+    totale = 0
+    task_creati = 0
+    per_categoria = {}
+    per_casella = {}
+
+    if DB_PATH.exists():
+        conn = sqlite3.connect(str(DB_PATH))
+        rows = conn.execute(
+            "SELECT mailbox, categoria, task_id FROM processed_emails "
+            "WHERE processed_at >= ? ORDER BY processed_at",
+            (yesterday,),
+        ).fetchall()
+        conn.close()
+
+        for mailbox, categoria, task_id in rows:
+            totale += 1
+            if task_id and task_id not in ("", "ERROR"):
+                task_creati += 1
+            per_categoria[categoria] = per_categoria.get(categoria, 0) + 1
+            per_casella[mailbox] = per_casella.get(mailbox, 0) + 1
+
+    lines = [f"Sistema email attivo - {today}"]
+    lines.append(f"Email processate ieri: {totale}")
+    lines.append(f"Task creati: {task_creati}")
+
+    if per_categoria:
+        cats = ", ".join(f"{k}: {v}" for k, v in sorted(per_categoria.items()))
+        lines.append(f"Categorie: {cats}")
+
+    if per_casella:
+        boxes = ", ".join(f"{k}: {v}" for k, v in sorted(per_casella.items()))
+        lines.append(f"Per casella: {boxes}")
+
+    n_caselle = len(cfg.get("mailboxes", []))
+    lines.append(f"Caselle monitorate: {n_caselle}")
+
+    msg = "\n".join(lines)
+    print(msg)
+    notifier.notify(msg)
+    print("\nReport inviato su Telegram")
+
+
 def main():
     cfg = load_config()
     cmd = sys.argv[1] if len(sys.argv) > 1 else "process"
@@ -157,6 +208,7 @@ def main():
         "loop": cmd_loop,
         "test": cmd_test,
         "test-classify": cmd_test_classify,
+        "daily-report": cmd_daily_report,
     }
 
     if cmd in ("-h", "--help", "help"):
