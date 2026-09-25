@@ -932,6 +932,70 @@ def invia_preventivo_email(preventivo_id: str, messaggio: str = "",
     return f"✅ Preventivo {prev.get('name','')} inviato a {email_to}{pdf_note}. Stato → Inviato."
 
 
+# ── STATO SISTEMA EMAIL ──────────────────────────────────────────────────────
+
+@mcp.tool()
+def stato_email_processor() -> str:
+    """Mostra lo stato del servizio di processing email: ultimo run, email processate, task creati."""
+    import sqlite3
+    import subprocess
+
+    lines = []
+
+    # Stato timer systemd
+    try:
+        r = subprocess.run(
+            ["systemctl", "is-active", "email-task-processor.timer"],
+            capture_output=True, text=True, timeout=5)
+        timer_status = r.stdout.strip()
+        if timer_status == "active":
+            lines.append("Timer email: ATTIVO")
+        else:
+            lines.append(f"Timer email: {timer_status.upper()}")
+    except Exception:
+        lines.append("Timer email: impossibile verificare")
+
+    # Ultimo run dal journal
+    try:
+        r = subprocess.run(
+            ["journalctl", "-u", "email-task-processor.service",
+             "--no-pager", "-n", "1", "-o", "short-iso", "--grep", "Processate"],
+            capture_output=True, text=True, timeout=5)
+        last_line = r.stdout.strip().split("\n")[-1] if r.stdout.strip() else ""
+        if last_line:
+            lines.append(f"Ultimo run: {last_line[:19]}")
+        else:
+            lines.append("Ultimo run: nessun log trovato")
+    except Exception:
+        lines.append("Ultimo run: impossibile verificare")
+
+    # Statistiche dal DB
+    db_path = os.path.join(os.path.dirname(__file__), "..", "data", "processed_emails.db")
+    db_path = os.path.normpath(db_path)
+    today = date.today().isoformat()
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+
+    try:
+        conn = sqlite3.connect(db_path)
+        row_today = conn.execute(
+            "SELECT COUNT(*), COUNT(CASE WHEN task_id != '' AND task_id != 'ERROR' THEN 1 END) "
+            "FROM processed_emails WHERE processed_at >= ?", (today,)).fetchone()
+        row_yesterday = conn.execute(
+            "SELECT COUNT(*), COUNT(CASE WHEN task_id != '' AND task_id != 'ERROR' THEN 1 END) "
+            "FROM processed_emails WHERE processed_at >= ? AND processed_at < ?",
+            (yesterday, today)).fetchone()
+        row_total = conn.execute("SELECT COUNT(*) FROM processed_emails").fetchone()
+        conn.close()
+
+        lines.append(f"\nOggi: {row_today[0]} email, {row_today[1]} task")
+        lines.append(f"Ieri: {row_yesterday[0]} email, {row_yesterday[1]} task")
+        lines.append(f"Totale storico: {row_total[0]} email processate")
+    except Exception as e:
+        lines.append(f"\nDB non disponibile: {e}")
+
+    return "\n".join(lines)
+
+
 # ── ENTRY POINT ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
