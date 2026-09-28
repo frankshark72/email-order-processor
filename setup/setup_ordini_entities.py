@@ -136,7 +136,7 @@ create_entity("COrdine", "Ordine", "Ordini", entity_type="BasePlus")
 add_field("COrdine", "varchar", "name",              "Numero Ordine")
 add_field("COrdine", "link",    "cliente",            "Cliente",               entity="Account")
 add_field("COrdine", "enum",    "brand",              "Brand / Mandante",
-          options=["ELMO", "4Power", "Ermes", "Altro"])
+          options=["ELMO", "4Power", "Ermes", "RIB", "PROSPECTA", "Altro"])
 add_field("COrdine", "date",    "dataOrdine",         "Data Ordine")
 add_field("COrdine", "date",    "dataConferma",       "Data Conferma")
 add_field("COrdine", "enum",    "stato",              "Stato",
