@@ -139,7 +139,8 @@ def cmd_test_classify(cfg: dict) -> None:
         result = classifier.classify(msg, label)
 
         print(f"   Categoria:  {result.categoria}")
-        print(f"   Priorità:   {result.priorita}")
+        print(f"   Priorita:   {result.priorita}")
+        print(f"   Azione req: {'SI - Creare Task' if result.azione_richiesta else 'NO - Solo tracking'}")
         print(f"   Cliente:    {result.cliente_nome or '—'}")
         print(f"   Mandante:   {result.mandante or '—'}")
         print(f"   Riassunto:  {result.riassunto}")

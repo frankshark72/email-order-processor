@@ -39,17 +39,21 @@ class EmailClassification:
     azione_suggerita: str = ""
     prodotti: list[str] = field(default_factory=list)
     confidenza: str = "alta"
+    azione_richiesta: bool = True
     raw_json: dict = field(default_factory=dict)
 
 
 _SYSTEM_PROMPT = """Sei un assistente per un agente di commercio italiano (FC Rappresentanze).
-L'agente rappresenta diverse aziende mandanti e riceve email da clienti e mandanti.
+L'agente rappresenta diverse aziende mandanti (ELMO, 4Power, Ermes, RIB, PROSPECTA) e riceve email da clienti e mandanti.
+
+Le caselle email dell'agente sono: info@fcrappresentanze.it, ordini@fcrappresentanze.it, fcrappresentanze@gmail.com, f.cecere@4power.it, cecere@ermes-cctv.com
 
 Analizza l'email e restituisci SOLO un JSON (nessun testo aggiuntivo, nessun markdown) con questa struttura:
 
 {
   "categoria": "ordine | preventivo | transito | risposta | informativa | altro",
   "priorita": "alta | normale | bassa",
+  "azione_richiesta": true/false,
   "cliente_nome": "nome del cliente o azienda cliente (null se non identificabile)",
   "cliente_email": "email del cliente (null se non identificabile)",
   "mandante": "nome dell'azienda mandante/fornitore coinvolta (null se non chiaro)",
@@ -64,11 +68,28 @@ Regole di classificazione:
 - "ordine": il cliente ordina dei prodotti (parole chiave: ordine, ordinare, voglio, confermo, vi prego di spedire)
 - "preventivo": il cliente chiede un preventivo/offerta/quotazione (parole chiave: preventivo, quotazione, prezzo, listino, quanto costa)
 - "transito": email dove l'agente è in CC/CCN, ordine già inviato alla mandante
-- "risposta": la mandante/fornitore risponde a un ordine o preventivo precedente (conferma spedizione, tempi, ecc.)
+- "risposta": la mandante/fornitore risponde a un ordine o preventivo precedente (conferma d'ordine, conferma spedizione, DDT, tempi di evasione, ecc.)
 - "informativa": newsletter, promozioni, comunicazioni generali senza azione richiesta
 - "altro": non rientra nelle categorie sopra
 
-Priorità:
+Regole per azione_richiesta (IMPORTANTE):
+- true: l'agente DEVE fare qualcosa (elaborare un ordine, fare un preventivo, rispondere a una richiesta, contattare qualcuno)
+- false: l'agente NON deve fare niente, è solo informativo o tracking passivo
+
+Casi in cui azione_richiesta = false:
+- Ordini dove il cliente manda alla mandante E all'agente (l'agente è in copia, non deve elaborare)
+- Conferme d'ordine dalla mandante (l'agente le tiene come riferimento)
+- DDT e notifiche di spedizione
+- Risposte della mandante che non richiedono intervento dell'agente
+- Newsletter, spam, informative
+
+Casi in cui azione_richiesta = true:
+- Ordini diretti SOLO all'agente (deve inserire prezzi e girare alla mandante)
+- Richieste di preventivo
+- Richieste di informazioni o contatto da parte di clienti
+- Email che richiedono una risposta o un'azione specifica dell'agente
+
+Priorita:
 - "alta": ordine urgente, cliente importante, scadenza vicina
 - "normale": ordine/preventivo standard
 - "bassa": informativa, nessuna urgenza
@@ -143,8 +164,15 @@ class EmailClassifier:
                     confidenza="bassa",
                 )
 
+        categoria = data.get("categoria", "altro")
+        azione = data.get("azione_richiesta", True)
+        if categoria in ("informativa", "transito"):
+            azione = False
+        if categoria == "risposta" and azione is not False:
+            azione = False
+
         return EmailClassification(
-            categoria=data.get("categoria", "altro"),
+            categoria=categoria,
             priorita=data.get("priorita", "normale"),
             cliente_nome=data.get("cliente_nome"),
             cliente_email=data.get("cliente_email"),
@@ -154,6 +182,7 @@ class EmailClassifier:
             azione_suggerita=data.get("azione_suggerita", ""),
             prodotti=data.get("prodotti", []),
             confidenza=data.get("confidenza", "media"),
+            azione_richiesta=bool(azione),
             raw_json=data,
         )
 

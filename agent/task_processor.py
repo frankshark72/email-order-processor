@@ -82,6 +82,7 @@ PRIORITY_MAP = {
 }
 
 SKIP_CATEGORIES = {"informativa"}
+TRACKING_ONLY_CATEGORIES = {"transito", "risposta"}
 
 
 class TaskProcessor:
@@ -150,7 +151,16 @@ class TaskProcessor:
         if self.skip_informativa and classification.categoria in SKIP_CATEGORIES:
             logger.info("[%s] Skipping informativa: %s", mailbox, msg.subject)
             _mark_processed(mailbox, msg.uid, msg.from_addr,
-                            msg.subject, classification.categoria, "")
+                            msg.subject, classification.categoria, "SKIP")
+            if self.mark_as_read:
+                reader.mark_as_read(msg.uid)
+            return ""
+
+        if not classification.azione_richiesta:
+            logger.info("[%s] No action needed (%s): %s",
+                        mailbox, classification.categoria, msg.subject)
+            _mark_processed(mailbox, msg.uid, msg.from_addr,
+                            msg.subject, classification.categoria, "TRACKING")
             if self.mark_as_read:
                 reader.mark_as_read(msg.uid)
             return ""
