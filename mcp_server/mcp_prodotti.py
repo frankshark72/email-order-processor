@@ -82,8 +82,8 @@ def calcola_prezzo(nome_prodotto: str, quantita: int, nome_cliente: str = "") ->
                      select="id,name", max_size=1)
         if ac:
             sconti = _search("CScontoCliente",
-                             [{"type": "equals", "attribute": "accountId", "value": ac[0]["id"]},
-                              {"type": "equals", "attribute": "fornitoreId", "value": p.get("accountId","")}],
+                             [{"type": "equals", "attribute": "scontiClienteId", "value": ac[0]["id"]},
+                              {"type": "equals", "attribute": "scontiMandanteId", "value": p.get("accountId","")}],
                              select="tipoCliente,scontoPct,note", max_size=5)
             if sconti:
                 s = sconti[0]

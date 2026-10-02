@@ -109,13 +109,13 @@ def dettaglio_account(nome: str) -> str:
     if c.get("description"):
         lines.append(f"📝 {c['description']}")
     sconti = _search("CScontoCliente",
-                     [{"type": "equals", "attribute": "accountId", "value": c["id"]}],
-                     select="fornitoreName,tipoCliente,scontoPct", max_size=20)
+                     [{"type": "equals", "attribute": "scontiClienteId", "value": c["id"]}],
+                     select="scontiMandanteName,tipoCliente,scontoPct", max_size=20)
     if sconti:
         lines.append("💰 Sconti:")
         for s in sconti:
             sc = f" -{s.get('scontoPct',0)}%" if s.get('scontoPct') else ""
-            lines.append(f"  • {s.get('fornitoreName','?')} | {s.get('tipoCliente','?')}{sc}")
+            lines.append(f"  • {s.get('scontiMandanteName','?')} | {s.get('tipoCliente','?')}{sc}")
     return "\n".join(lines)
 
 
@@ -194,14 +194,14 @@ def clienti_per_fornitore(nome_fornitore: str) -> str:
     if not fornitori:
         return f"Fornitore '{nome_fornitore}' non trovato."
     sconti = _search("CScontoCliente",
-                     [{"type": "equals", "attribute": "fornitoreId", "value": fornitori[0]["id"]}],
-                     select="accountName,tipoCliente,scontoPct", max_size=200)
+                     [{"type": "equals", "attribute": "scontiMandanteId", "value": fornitori[0]["id"]}],
+                     select="scontiClienteName,tipoCliente,scontoPct", max_size=200)
     if not sconti:
         return f"Nessun cliente associato a {fornitori[0]['name']}."
     lines = [f"👥 Clienti {fornitori[0]['name']} ({len(sconti)}):"]
     for s in sconti:
         sc = f" -{s['scontoPct']}%" if s.get("scontoPct") else ""
-        lines.append(f"  • {s.get('accountName','?')} | {s.get('tipoCliente','?')}{sc}")
+        lines.append(f"  • {s.get('scontiClienteName','?')} | {s.get('tipoCliente','?')}{sc}")
     return "\n".join(lines)
 
 
@@ -256,14 +256,14 @@ def sconti_cliente(nome_cliente: str) -> str:
     if not accounts:
         return f"Cliente '{nome_cliente}' non trovato."
     sconti = _search("CScontoCliente",
-                     [{"type": "equals", "attribute": "accountId", "value": accounts[0]["id"]}],
-                     select="fornitoreName,tipoCliente,scontoPct,note", max_size=50)
+                     [{"type": "equals", "attribute": "scontiClienteId", "value": accounts[0]["id"]}],
+                     select="scontiMandanteName,tipoCliente,scontoPct,note", max_size=50)
     if not sconti:
         return f"Nessuno sconto per {accounts[0]['name']}."
     lines = [f"💰 Sconti di {accounts[0]['name']}:"]
     for s in sconti:
         sc = f" {s.get('scontoPct',0)}%" if s.get('scontoPct') else ""
-        lines.append(f"  • {s.get('fornitoreName','?')} | {s.get('tipoCliente','?')}{sc}")
+        lines.append(f"  • {s.get('scontiMandanteName','?')} | {s.get('tipoCliente','?')}{sc}")
     return "\n".join(lines)
 
 
@@ -278,8 +278,8 @@ def aggiungi_sconto(nome_cliente: str, nome_fornitore: str,
                  select="id,name", max_size=1)
     if not ac: return f"Cliente '{nome_cliente}' non trovato."
     if not af: return f"Fornitore '{nome_fornitore}' non trovato."
-    payload = {"name": f"{ac[0]['name']} – {af[0]['name']}", "accountId": ac[0]["id"],
-               "fornitoreId": af[0]["id"], "tipoCliente": tipo_cliente, "scontoPct": sconto_pct}
+    payload = {"name": f"{ac[0]['name']} – {af[0]['name']}", "scontiClienteId": ac[0]["id"],
+               "scontiMandanteId": af[0]["id"], "tipoCliente": tipo_cliente, "scontoPct": sconto_pct}
     if note: payload["note"] = note
     _post("CScontoCliente", payload)
     return f"✅ Sconto: {ac[0]['name']} | {af[0]['name']} | {tipo_cliente} | {sconto_pct}%"
@@ -368,8 +368,8 @@ def calcola_prezzo(nome_prodotto: str, quantita: int = 1, nome_cliente: str = ""
                      select="id,name", max_size=1)
         if ac:
             sconti = _search("CScontoCliente",
-                             [{"type": "equals", "attribute": "accountId", "value": ac[0]["id"]},
-                              {"type": "equals", "attribute": "fornitoreId", "value": p.get("accountId","")}],
+                             [{"type": "equals", "attribute": "scontiClienteId", "value": ac[0]["id"]},
+                              {"type": "equals", "attribute": "scontiMandanteId", "value": p.get("accountId","")}],
                              select="tipoCliente,scontoPct", max_size=1)
             if sconti:
                 tipo_cliente = sconti[0].get("tipoCliente") or "rivenditore"
