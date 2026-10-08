@@ -93,7 +93,7 @@ def calcola_prezzo(nome_prodotto: str, quantita: int, nome_cliente: str = "") ->
             else:
                 contratto_info = f"⚠️ Nessun contratto per {ac[0]['name']} / {p.get('accountName','?')}"
 
-    righe = _search("RigaListino",
+    righe = _search("CRigaListino",
                     [{"type": "equals", "attribute": "prodottoId", "value": p["id"]},
                      {"type": "equals", "attribute": "tipoCliente", "value": tipo_cliente}],
                     select="tipoCliente,quantitaMinima,prezzoNetto",
@@ -108,7 +108,7 @@ def calcola_prezzo(nome_prodotto: str, quantita: int, nome_cliente: str = "") ->
             break
 
     if prezzo_base is None:
-        tutti = _search("RigaListino",
+        tutti = _search("CRigaListino",
                         [{"type": "equals", "attribute": "prodottoId", "value": p["id"]}],
                         select="tipoCliente,quantitaMinima,prezzoNetto", max_size=20)
         if tutti:
