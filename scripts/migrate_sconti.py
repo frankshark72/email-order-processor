@@ -35,7 +35,18 @@ def patch(entity, record_id, data):
 
 
 print("Caricamento account...")
-all_accounts = search("Account", [], select="id,name", max_size=200)
+all_accounts = []
+offset = 0
+while True:
+    params = {"select": "id,name", "maxSize": 200, "offset": offset}
+    r = requests.get(f"{API_BASE}/Account", headers=HEADERS, params=params, timeout=15)
+    r.raise_for_status()
+    batch = r.json().get("list", [])
+    all_accounts.extend(batch)
+    if len(batch) < 200:
+        break
+    offset += 200
+
 account_map = {}
 for a in all_accounts:
     account_map[a["name"].strip().lower()] = a
