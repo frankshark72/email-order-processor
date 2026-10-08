@@ -548,26 +548,258 @@ def completa_task(titolo: str) -> str:
 # ── ORDINI ────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
-def ordini_in_attesa() -> str:
-    """Elenca ordini email con stato in_attesa."""
-    r = requests.get(f"{API_BASE}/OrdineEmail", headers=_headers(),
-                     params={"maxSize": 1}, timeout=10)
-    if r.status_code == 404:
-        return "ℹ️ Entità OrdineEmail non ancora configurata."
-    results = _search("OrdineEmail",
-                      [{"type": "equals", "attribute": "stato", "value": "in_attesa"}],
-                      select="id,emailDa,emailOggetto,emailData", max_size=20)
-    if not results:
-        return "✅ Nessun ordine in attesa."
-    today = date.today()
-    lines = [f"💰 Ordini in attesa ({len(results)}):"]
-    for o in results:
+def crea_ordine(nome_cliente: str, nome_mandante: str, categoria: str = "ordine_diretto",
+                numero_ordine: str = "", data_ordine: str = "", note: str = "",
+                email_origine: str = "", oggetto_email: str = "",
+                riferimento_cliente: str = "", riferimento_mandante: str = "",
+                azione_richiesta: str = "da_confermare", priorita: str = "normale",
+                righe: str = "") -> str:
+    """
+    Crea un ordine (CCOrdine) con righe opzionali (CCRigaOrdine).
+    categoria: ordine_diretto|ordine_cc|conferma_ordine|preventivo
+    azione_richiesta: nessuna|da_confermare|da_verificare_prezzo|da_inoltrare
+    priorita: bassa|normale|alta|urgente
+    righe: JSON list es. [{"codice":"H0160B","qta":5,"prezzo":1.20},{"codice":"XX","qta":10}]
+    """
+    import json as _json
+
+    ac = _search("Account", [{"type": "contains", "attribute": "name", "value": nome_cliente}],
+                 select="id,name", max_size=1)
+    af = _search("Account", [{"type": "contains", "attribute": "name", "value": nome_mandante}],
+                 select="id,name", max_size=1)
+    if not ac:
+        return f"Cliente '{nome_cliente}' non trovato."
+    if not af:
+        return f"Mandante '{nome_mandante}' non trovato."
+
+    oggi = data_ordine or date.today().isoformat()
+    nome_ordine = numero_ordine or f"ORD-{oggi.replace('-','')}-{ac[0]['name'][:20]}"
+
+    payload: dict = {
+        "name": nome_ordine,
+        "cOrdineClienteId": ac[0]["id"],
+        "cOrdineMandanteId": af[0]["id"],
+        "stato": "Nuovo",
+        "flusso": categoria,
+        "dataOrdine": oggi,
+        "azioneRichiesta": azione_richiesta,
+        "priorita": priorita,
+    }
+    if numero_ordine:
+        payload["numeroOrdine"] = numero_ordine
+    if note:
+        payload["note"] = note
+    if email_origine:
+        payload["emailOrigine"] = email_origine
+    if oggetto_email:
+        payload["oggettoEmail"] = oggetto_email
+    if riferimento_cliente:
+        payload["riferimentoCliente"] = riferimento_cliente
+    if riferimento_mandante:
+        payload["riferimentoMandante"] = riferimento_mandante
+
+    ordine = _post("CCOrdine", payload)
+    ordine_id = ordine.get("id")
+    if not ordine_id:
+        return "Errore nella creazione dell'ordine."
+
+    righe_create = 0
+    errori_righe = []
+    if righe:
         try:
-            giorni = (today - datetime.strptime(o.get("emailData","")[:10], "%Y-%m-%d").date()).days
-            data_str = f"{giorni}gg fa"
-        except Exception:
-            data_str = o.get("emailData","?")[:10]
-        lines.append(f"• {o.get('emailDa','?')} | {o.get('emailOggetto','?')} | {data_str}")
+            righe_list = _json.loads(righe)
+        except Exception as e:
+            righe_list = []
+            errori_righe.append(f"JSON righe non valido: {e}")
+
+        for i, riga in enumerate(righe_list, 1):
+            codice = str(riga.get("codice") or riga.get("name") or f"riga-{i}")
+            qta = int(riga.get("qta") or riga.get("quantita") or 1)
+            prezzo = riga.get("prezzo") or riga.get("prezzoUnitario")
+            descrizione = riga.get("descrizione") or ""
+            um = riga.get("um") or riga.get("unitaMisura") or "pz"
+            sconto = float(riga.get("sconto") or riga.get("scontoPct") or 0)
+
+            prodotti = _search("CProdotto",
+                               [{"type": "or", "value": [
+                                   {"type": "equals", "attribute": "codice", "value": codice},
+                                   {"type": "contains", "attribute": "name", "value": codice},
+                               ]}],
+                               select="id,name,codice,unitaMisura", max_size=1)
+
+            riga_payload: dict = {
+                "name": descrizione or codice,
+                "ordineId": ordine_id,
+                "codice": codice,
+                "quantita": qta,
+                "unitaMisura": um,
+                "scontoPct": sconto,
+            }
+            if descrizione:
+                riga_payload["descrizione"] = descrizione
+            if prezzo is not None:
+                riga_payload["prezzoUnitario"] = float(prezzo)
+                totale = float(prezzo) * qta * (1 - sconto / 100)
+                riga_payload["totaleRiga"] = totale
+            if prodotti:
+                riga_payload["prodottoId"] = prodotti[0]["id"]
+                if not descrizione:
+                    riga_payload["name"] = prodotti[0]["name"]
+                    riga_payload["descrizione"] = prodotti[0]["name"]
+                if not um or um == "pz":
+                    riga_payload["unitaMisura"] = prodotti[0].get("unitaMisura") or "pz"
+
+            try:
+                _post("CCRigaOrdine", riga_payload)
+                righe_create += 1
+            except Exception as e:
+                errori_righe.append(f"Riga {codice}: {e}")
+
+    lines = [
+        f"✅ Ordine {nome_ordine} creato",
+        f"   Cliente: {ac[0]['name']} | Mandante: {af[0]['name']}",
+        f"   Stato: Nuovo | Flusso: {categoria} | Azione: {azione_richiesta}",
+    ]
+    if righe_create:
+        lines.append(f"   Righe: {righe_create} create")
+    if errori_righe:
+        lines.append(f"   ⚠️ Errori: {'; '.join(errori_righe)}")
+    lines.append(f"   ID: {ordine_id}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def lista_ordini(cliente: str = "", mandante: str = "", stato: str = "",
+                 azione: str = "", limit: int = 20) -> str:
+    """Elenca ordini. Filtra per cliente, mandante, stato o azione richiesta."""
+    where = []
+    if cliente:
+        ac = _search("Account", [{"type": "contains", "attribute": "name", "value": cliente}],
+                     select="id", max_size=1)
+        if ac:
+            where.append({"type": "equals", "attribute": "cOrdineClienteId", "value": ac[0]["id"]})
+    if mandante:
+        af = _search("Account", [{"type": "contains", "attribute": "name", "value": mandante}],
+                     select="id", max_size=1)
+        if af:
+            where.append({"type": "equals", "attribute": "cOrdineMandanteId", "value": af[0]["id"]})
+    if stato:
+        where.append({"type": "equals", "attribute": "stato", "value": stato})
+    if azione:
+        where.append({"type": "equals", "attribute": "azioneRichiesta", "value": azione})
+
+    ordini = _search("CCOrdine", where,
+                     select="name,cOrdineClienteName,cOrdineMandanteName,stato,flusso,"
+                            "dataOrdine,azioneRichiesta,totaleOrdine",
+                     max_size=limit)
+    if not ordini:
+        return "Nessun ordine trovato."
+    lines = [f"📦 Ordini ({len(ordini)}):"]
+    for o in ordini:
+        tot = o.get("totaleOrdine")
+        tot_str = f" | €{float(tot):.2f}" if tot else ""
+        azione_str = f" ⚠️{o['azioneRichiesta']}" if o.get("azioneRichiesta", "nessuna") != "nessuna" else ""
+        lines.append(f"• [{o.get('stato','?')}] {o['name']} | {o.get('cOrdineClienteName','?')}"
+                     f" → {o.get('cOrdineMandanteName','?')}{tot_str}{azione_str}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def dettaglio_ordine(nome_ordine: str) -> str:
+    """Mostra dettaglio completo di un ordine con le sue righe."""
+    ordini = _search("CCOrdine",
+                     [{"type": "contains", "attribute": "name", "value": nome_ordine}],
+                     select="id,name,cOrdineClienteName,cOrdineMandanteName,stato,flusso,"
+                            "dataOrdine,azioneRichiesta,priorita,totaleOrdine,note,"
+                            "emailOrigine,oggettoEmail,riferimentoCliente,riferimentoMandante,"
+                            "controlloPrezziOk,alertPrezzi",
+                     max_size=1)
+    if not ordini:
+        return f"Ordine '{nome_ordine}' non trovato."
+    o = ordini[0]
+
+    lines = [
+        f"📦 {o['name']}",
+        f"   Cliente: {o.get('cOrdineClienteName','?')} | Mandante: {o.get('cOrdineMandanteName','?')}",
+        f"   Stato: {o.get('stato','?')} | Flusso: {o.get('flusso','?')} | Priorità: {o.get('priorita','?')}",
+        f"   Data: {o.get('dataOrdine','?')} | Azione: {o.get('azioneRichiesta','?')}",
+    ]
+    if o.get("emailOrigine"):
+        lines.append(f"   Email: {o['emailOrigine']}")
+    if o.get("oggettoEmail"):
+        lines.append(f"   Oggetto: {o['oggettoEmail']}")
+    if o.get("riferimentoCliente"):
+        lines.append(f"   Rif. cliente: {o['riferimentoCliente']}")
+    if o.get("riferimentoMandante"):
+        lines.append(f"   Rif. mandante: {o['riferimentoMandante']}")
+    if o.get("controlloPrezziOk") is not None:
+        lines.append(f"   Prezzi OK: {'✅' if o['controlloPrezziOk'] else '❌'}")
+    if o.get("alertPrezzi"):
+        lines.append(f"   ⚠️ Alert: {o['alertPrezzi']}")
+    if o.get("note"):
+        lines.append(f"   Note: {o['note']}")
+
+    righe = _search("CCRigaOrdine",
+                    [{"type": "equals", "attribute": "ordineId", "value": o["id"]}],
+                    select="codice,descrizione,quantita,unitaMisura,prezzoUnitario,"
+                           "prezzoListino,scontoPct,totaleRiga,alertPrezzo",
+                    max_size=50)
+    if righe:
+        tot = o.get("totaleOrdine")
+        lines.append(f"\n   Righe ({len(righe)}):")
+        for r in righe:
+            prezzo = r.get("prezzoUnitario")
+            p_str = f"€{float(prezzo):.4f}" if prezzo else "—"
+            sc = f" -{r['scontoPct']}%" if r.get("scontoPct") else ""
+            tot_r = r.get("totaleRiga")
+            t_str = f" = €{float(tot_r):.2f}" if tot_r else ""
+            alert = " ⚠️" if r.get("alertPrezzo") else ""
+            lines.append(f"   • [{r.get('codice','—')}] {r.get('descrizione','—')}"
+                         f" × {r.get('quantita','?')} {r.get('unitaMisura','pz')}"
+                         f" | {p_str}{sc}{t_str}{alert}")
+        if tot:
+            lines.append(f"\n   💰 Totale: €{float(tot):.2f}")
+
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def aggiorna_stato_ordine(nome_ordine: str, stato: str, note: str = "") -> str:
+    """Aggiorna lo stato di un ordine. stato: Nuovo|Confermato|Spedito|Fatturato|Annullato"""
+    ordini = _search("CCOrdine",
+                     [{"type": "contains", "attribute": "name", "value": nome_ordine}],
+                     select="id,name,stato", max_size=1)
+    if not ordini:
+        return f"Ordine '{nome_ordine}' non trovato."
+    payload: dict = {"stato": stato}
+    if stato == "Confermato":
+        payload["dataConferma"] = date.today().isoformat()
+        payload["azioneRichiesta"] = "nessuna"
+    if note:
+        payload["note"] = note
+    _patch("CCOrdine", ordini[0]["id"], payload)
+    return f"✅ Ordine {ordini[0]['name']}: {ordini[0].get('stato','?')} → {stato}"
+
+
+@mcp.tool()
+def ordini_da_gestire() -> str:
+    """Elenca ordini che richiedono un'azione (da_confermare, da_verificare_prezzo, da_inoltrare)."""
+    ordini = _search("CCOrdine",
+                     [{"type": "notEquals", "attribute": "azioneRichiesta", "value": "nessuna"},
+                      {"type": "notIn", "attribute": "stato", "value": ["Annullato", "Fatturato"]}],
+                     select="name,cOrdineClienteName,cOrdineMandanteName,stato,flusso,"
+                            "dataOrdine,azioneRichiesta,priorita,totaleOrdine",
+                     max_size=50)
+    if not ordini:
+        return "✅ Nessun ordine da gestire."
+    lines = [f"⚠️ Ordini da gestire ({len(ordini)}):"]
+    for o in ordini:
+        tot = o.get("totaleOrdine")
+        tot_str = f" | €{float(tot):.2f}" if tot else ""
+        pri = f" 🔴" if o.get("priorita") in ("alta", "urgente") else ""
+        lines.append(f"• [{o.get('azioneRichiesta','?')}] {o['name']}"
+                     f" | {o.get('cOrdineClienteName','?')} → {o.get('cOrdineMandanteName','?')}"
+                     f"{tot_str}{pri}")
     return "\n".join(lines)
 
 
@@ -597,7 +829,7 @@ def briefing() -> str:
     else:
         sezioni.append("📋 Nessun task in scadenza.")
 
-    sezioni.append("\n" + ordini_in_attesa())
+    sezioni.append("\n" + ordini_da_gestire())
 
     all_clients = _search("Account", [],
                           select="name,zona,frequenzaVisitaGiorni,ultimaVisita", max_size=200)
