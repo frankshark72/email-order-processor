@@ -577,9 +577,9 @@ def crea_ordine(nome_cliente: str, nome_mandante: str, categoria: str = "ordine_
 
     payload: dict = {
         "name": nome_ordine,
-        "cOrdineClienteId": ac[0]["id"],
-        "cOrdineMandanteId": af[0]["id"],
-        "stato": "Nuovo",
+        "ordiniClienteId": ac[0]["id"],
+        "ordiniMandanteId": af[0]["id"],
+        "stato": "da_elaborare",
         "flusso": categoria,
         "dataOrdine": oggi,
         "azioneRichiesta": azione_richiesta,
@@ -677,19 +677,19 @@ def lista_ordini(cliente: str = "", mandante: str = "", stato: str = "",
         ac = _search("Account", [{"type": "contains", "attribute": "name", "value": cliente}],
                      select="id", max_size=1)
         if ac:
-            where.append({"type": "equals", "attribute": "cOrdineClienteId", "value": ac[0]["id"]})
+            where.append({"type": "equals", "attribute": "ordiniClienteId", "value": ac[0]["id"]})
     if mandante:
         af = _search("Account", [{"type": "contains", "attribute": "name", "value": mandante}],
                      select="id", max_size=1)
         if af:
-            where.append({"type": "equals", "attribute": "cOrdineMandanteId", "value": af[0]["id"]})
+            where.append({"type": "equals", "attribute": "ordiniMandanteId", "value": af[0]["id"]})
     if stato:
         where.append({"type": "equals", "attribute": "stato", "value": stato})
     if azione:
         where.append({"type": "equals", "attribute": "azioneRichiesta", "value": azione})
 
     ordini = _search("CCOrdine", where,
-                     select="name,cOrdineClienteName,cOrdineMandanteName,stato,flusso,"
+                     select="name,ordiniClienteName,ordiniMandanteName,stato,flusso,"
                             "dataOrdine,azioneRichiesta,totaleOrdine",
                      max_size=limit)
     if not ordini:
@@ -699,8 +699,8 @@ def lista_ordini(cliente: str = "", mandante: str = "", stato: str = "",
         tot = o.get("totaleOrdine")
         tot_str = f" | €{float(tot):.2f}" if tot else ""
         azione_str = f" ⚠️{o['azioneRichiesta']}" if o.get("azioneRichiesta", "nessuna") != "nessuna" else ""
-        lines.append(f"• [{o.get('stato','?')}] {o['name']} | {o.get('cOrdineClienteName','?')}"
-                     f" → {o.get('cOrdineMandanteName','?')}{tot_str}{azione_str}")
+        lines.append(f"• [{o.get('stato','?')}] {o['name']} | {o.get('ordiniClienteName','?')}"
+                     f" → {o.get('ordiniMandanteName','?')}{tot_str}{azione_str}")
     return "\n".join(lines)
 
 
@@ -709,7 +709,7 @@ def dettaglio_ordine(nome_ordine: str) -> str:
     """Mostra dettaglio completo di un ordine con le sue righe."""
     ordini = _search("CCOrdine",
                      [{"type": "contains", "attribute": "name", "value": nome_ordine}],
-                     select="id,name,cOrdineClienteName,cOrdineMandanteName,stato,flusso,"
+                     select="id,name,ordiniClienteName,ordiniMandanteName,stato,flusso,"
                             "dataOrdine,azioneRichiesta,priorita,totaleOrdine,note,"
                             "emailOrigine,oggettoEmail,riferimentoCliente,riferimentoMandante,"
                             "controlloPrezziOk,alertPrezzi",
@@ -720,7 +720,7 @@ def dettaglio_ordine(nome_ordine: str) -> str:
 
     lines = [
         f"📦 {o['name']}",
-        f"   Cliente: {o.get('cOrdineClienteName','?')} | Mandante: {o.get('cOrdineMandanteName','?')}",
+        f"   Cliente: {o.get('ordiniClienteName','?')} | Mandante: {o.get('ordiniMandanteName','?')}",
         f"   Stato: {o.get('stato','?')} | Flusso: {o.get('flusso','?')} | Priorità: {o.get('priorita','?')}",
         f"   Data: {o.get('dataOrdine','?')} | Azione: {o.get('azioneRichiesta','?')}",
     ]
@@ -787,7 +787,7 @@ def ordini_da_gestire() -> str:
     ordini = _search("CCOrdine",
                      [{"type": "notEquals", "attribute": "azioneRichiesta", "value": "nessuna"},
                       {"type": "notIn", "attribute": "stato", "value": ["Annullato", "Fatturato"]}],
-                     select="name,cOrdineClienteName,cOrdineMandanteName,stato,flusso,"
+                     select="name,ordiniClienteName,ordiniMandanteName,stato,flusso,"
                             "dataOrdine,azioneRichiesta,priorita,totaleOrdine",
                      max_size=50)
     if not ordini:
@@ -798,7 +798,7 @@ def ordini_da_gestire() -> str:
         tot_str = f" | €{float(tot):.2f}" if tot else ""
         pri = f" 🔴" if o.get("priorita") in ("alta", "urgente") else ""
         lines.append(f"• [{o.get('azioneRichiesta','?')}] {o['name']}"
-                     f" | {o.get('cOrdineClienteName','?')} → {o.get('cOrdineMandanteName','?')}"
+                     f" | {o.get('ordiniClienteName','?')} → {o.get('ordiniMandanteName','?')}"
                      f"{tot_str}{pri}")
     return "\n".join(lines)
 
