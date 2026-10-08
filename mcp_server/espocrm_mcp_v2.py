@@ -548,17 +548,14 @@ def completa_task(titolo: str) -> str:
 # ── ORDINI ────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
-def crea_ordine(nome_cliente: str, nome_mandante: str, categoria: str = "ordine_diretto",
-                numero_ordine: str = "", data_ordine: str = "", note: str = "",
+def crea_ordine(nome_cliente: str, nome_mandante: str, flusso: str = "diretto",
+                nome_ordine: str = "", data_ordine: str = "", note: str = "",
                 email_origine: str = "", oggetto_email: str = "",
                 riferimento_cliente: str = "", riferimento_mandante: str = "",
-                azione_richiesta: str = "da_confermare", priorita: str = "normale",
                 righe: str = "") -> str:
     """
     Crea un ordine (CCOrdine) con righe opzionali (CCRigaOrdine).
-    categoria: ordine_diretto|ordine_cc|conferma_ordine|preventivo
-    azione_richiesta: nessuna|da_confermare|da_verificare_prezzo|da_inoltrare
-    priorita: bassa|normale|alta|urgente
+    flusso: diretto|tramite_agente
     righe: JSON list es. [{"codice":"H0160B","qta":5,"prezzo":1.20},{"codice":"XX","qta":10}]
     """
     import json as _json
@@ -573,20 +570,16 @@ def crea_ordine(nome_cliente: str, nome_mandante: str, categoria: str = "ordine_
         return f"Mandante '{nome_mandante}' non trovato."
 
     oggi = data_ordine or date.today().isoformat()
-    nome_ordine = numero_ordine or f"ORD-{oggi.replace('-','')}-{ac[0]['name'][:20]}"
+    ordine_name = nome_ordine or f"ORD-{oggi.replace('-','')}-{ac[0]['name'][:20]}"
 
     payload: dict = {
-        "name": nome_ordine,
+        "name": ordine_name,
         "ordiniClienteId": ac[0]["id"],
         "ordiniMandanteId": af[0]["id"],
         "stato": "da_elaborare",
-        "flusso": categoria,
+        "flusso": flusso,
         "dataOrdine": oggi,
-        "azioneRichiesta": azione_richiesta,
-        "priorita": priorita,
     }
-    if numero_ordine:
-        payload["numeroOrdine"] = numero_ordine
     if note:
         payload["note"] = note
     if email_origine:
@@ -656,9 +649,9 @@ def crea_ordine(nome_cliente: str, nome_mandante: str, categoria: str = "ordine_
                 errori_righe.append(f"Riga {codice}: {e}")
 
     lines = [
-        f"✅ Ordine {nome_ordine} creato",
+        f"✅ Ordine {ordine_name} creato",
         f"   Cliente: {ac[0]['name']} | Mandante: {af[0]['name']}",
-        f"   Stato: Nuovo | Flusso: {categoria} | Azione: {azione_richiesta}",
+        f"   Stato: da_elaborare | Flusso: {flusso}",
     ]
     if righe_create:
         lines.append(f"   Righe: {righe_create} create")
@@ -670,8 +663,9 @@ def crea_ordine(nome_cliente: str, nome_mandante: str, categoria: str = "ordine_
 
 @mcp.tool()
 def lista_ordini(cliente: str = "", mandante: str = "", stato: str = "",
-                 azione: str = "", limit: int = 20) -> str:
-    """Elenca ordini. Filtra per cliente, mandante, stato o azione richiesta."""
+                 limit: int = 20) -> str:
+    """Elenca ordini. Filtra per cliente, mandante, stato.
+    stato: da_elaborare|da_confermare|confermato|in_evasione|parziale|evaso"""
     where = []
     if cliente:
         ac = _search("Account", [{"type": "contains", "attribute": "name", "value": cliente}],
@@ -685,12 +679,10 @@ def lista_ordini(cliente: str = "", mandante: str = "", stato: str = "",
             where.append({"type": "equals", "attribute": "ordiniMandanteId", "value": af[0]["id"]})
     if stato:
         where.append({"type": "equals", "attribute": "stato", "value": stato})
-    if azione:
-        where.append({"type": "equals", "attribute": "azioneRichiesta", "value": azione})
 
     ordini = _search("CCOrdine", where,
                      select="name,ordiniClienteName,ordiniMandanteName,stato,flusso,"
-                            "dataOrdine,azioneRichiesta,totaleOrdine",
+                            "dataOrdine,totaleOrdine",
                      max_size=limit)
     if not ordini:
         return "Nessun ordine trovato."
@@ -698,9 +690,8 @@ def lista_ordini(cliente: str = "", mandante: str = "", stato: str = "",
     for o in ordini:
         tot = o.get("totaleOrdine")
         tot_str = f" | €{float(tot):.2f}" if tot else ""
-        azione_str = f" ⚠️{o['azioneRichiesta']}" if o.get("azioneRichiesta", "nessuna") != "nessuna" else ""
         lines.append(f"• [{o.get('stato','?')}] {o['name']} | {o.get('ordiniClienteName','?')}"
-                     f" → {o.get('ordiniMandanteName','?')}{tot_str}{azione_str}")
+                     f" → {o.get('ordiniMandanteName','?')}{tot_str}")
     return "\n".join(lines)
 
 
@@ -710,7 +701,7 @@ def dettaglio_ordine(nome_ordine: str) -> str:
     ordini = _search("CCOrdine",
                      [{"type": "contains", "attribute": "name", "value": nome_ordine}],
                      select="id,name,ordiniClienteName,ordiniMandanteName,stato,flusso,"
-                            "dataOrdine,azioneRichiesta,priorita,totaleOrdine,note,"
+                            "dataOrdine,dataConferma,totaleOrdine,note,"
                             "emailOrigine,oggettoEmail,riferimentoCliente,riferimentoMandante,"
                             "controlloPrezziOk,alertPrezzi",
                      max_size=1)
@@ -721,9 +712,11 @@ def dettaglio_ordine(nome_ordine: str) -> str:
     lines = [
         f"📦 {o['name']}",
         f"   Cliente: {o.get('ordiniClienteName','?')} | Mandante: {o.get('ordiniMandanteName','?')}",
-        f"   Stato: {o.get('stato','?')} | Flusso: {o.get('flusso','?')} | Priorità: {o.get('priorita','?')}",
-        f"   Data: {o.get('dataOrdine','?')} | Azione: {o.get('azioneRichiesta','?')}",
+        f"   Stato: {o.get('stato','?')} | Flusso: {o.get('flusso','?')}",
+        f"   Data ordine: {o.get('dataOrdine','?')}",
     ]
+    if o.get("dataConferma"):
+        lines.append(f"   Data conferma: {o['dataConferma']}")
     if o.get("emailOrigine"):
         lines.append(f"   Email: {o['emailOrigine']}")
     if o.get("oggettoEmail"):
@@ -765,16 +758,16 @@ def dettaglio_ordine(nome_ordine: str) -> str:
 
 @mcp.tool()
 def aggiorna_stato_ordine(nome_ordine: str, stato: str, note: str = "") -> str:
-    """Aggiorna lo stato di un ordine. stato: Nuovo|Confermato|Spedito|Fatturato|Annullato"""
+    """Aggiorna lo stato di un ordine.
+    stato: da_elaborare|da_confermare|confermato|in_evasione|parziale|evaso"""
     ordini = _search("CCOrdine",
                      [{"type": "contains", "attribute": "name", "value": nome_ordine}],
                      select="id,name,stato", max_size=1)
     if not ordini:
         return f"Ordine '{nome_ordine}' non trovato."
     payload: dict = {"stato": stato}
-    if stato == "Confermato":
+    if stato == "confermato":
         payload["dataConferma"] = date.today().isoformat()
-        payload["azioneRichiesta"] = "nessuna"
     if note:
         payload["note"] = note
     _patch("CCOrdine", ordini[0]["id"], payload)
@@ -783,12 +776,12 @@ def aggiorna_stato_ordine(nome_ordine: str, stato: str, note: str = "") -> str:
 
 @mcp.tool()
 def ordini_da_gestire() -> str:
-    """Elenca ordini che richiedono un'azione (da_confermare, da_verificare_prezzo, da_inoltrare)."""
+    """Elenca ordini da elaborare o da confermare."""
     ordini = _search("CCOrdine",
-                     [{"type": "notEquals", "attribute": "azioneRichiesta", "value": "nessuna"},
-                      {"type": "notIn", "attribute": "stato", "value": ["Annullato", "Fatturato"]}],
+                     [{"type": "in", "attribute": "stato",
+                       "value": ["da_elaborare", "da_confermare"]}],
                      select="name,ordiniClienteName,ordiniMandanteName,stato,flusso,"
-                            "dataOrdine,azioneRichiesta,priorita,totaleOrdine",
+                            "dataOrdine,totaleOrdine",
                      max_size=50)
     if not ordini:
         return "✅ Nessun ordine da gestire."
@@ -796,10 +789,9 @@ def ordini_da_gestire() -> str:
     for o in ordini:
         tot = o.get("totaleOrdine")
         tot_str = f" | €{float(tot):.2f}" if tot else ""
-        pri = f" 🔴" if o.get("priorita") in ("alta", "urgente") else ""
-        lines.append(f"• [{o.get('azioneRichiesta','?')}] {o['name']}"
+        lines.append(f"• [{o.get('stato','?')}] {o['name']}"
                      f" | {o.get('ordiniClienteName','?')} → {o.get('ordiniMandanteName','?')}"
-                     f"{tot_str}{pri}")
+                     f"{tot_str}")
     return "\n".join(lines)
 
 
