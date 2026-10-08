@@ -35,7 +35,7 @@ def patch(entity, record_id, data):
 
 
 print("Caricamento account...")
-all_accounts = search("Account", [], select="id,name", max_size=500)
+all_accounts = search("Account", [], select="id,name", max_size=200)
 account_map = {}
 for a in all_accounts:
     account_map[a["name"].strip().lower()] = a
