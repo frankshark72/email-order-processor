@@ -53,13 +53,15 @@ class IMAPReader:
     """
 
     def __init__(self, host: str, port: int, username: str, password: str,
-                 mailbox: str = "INBOX", use_ssl: bool = True):
+                 mailbox: str = "INBOX", use_ssl: bool = True,
+                 verify_ssl: bool = True):
         self.host = host
         self.port = port
         self.username = username
         self.password = password
         self.mailbox = mailbox
         self.use_ssl = use_ssl
+        self.verify_ssl = verify_ssl
         self._conn: Optional[imaplib.IMAP4_SSL | imaplib.IMAP4] = None
 
     # ── Connection ────────────────────────────────────────────────────────────
@@ -67,6 +69,9 @@ class IMAPReader:
     def connect(self) -> None:
         if self.use_ssl:
             context = ssl.create_default_context()
+            if not self.verify_ssl:
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
             self._conn = imaplib.IMAP4_SSL(self.host, self.port, ssl_context=context)
         else:
             self._conn = imaplib.IMAP4(self.host, self.port)
@@ -131,9 +136,19 @@ class IMAPReader:
     def mark_as_read(self, uid: str) -> None:
         self._conn.uid("store", uid, "+FLAGS", "\\Seen")
 
-    def fetch_all_unread(self) -> list[EmailMessage]:
-        """Fetch all unread messages and return parsed EmailMessage list."""
-        uids = self.get_unread_uids()
+    def get_unread_uids_since(self, since_date: datetime) -> list[str]:
+        date_str = since_date.strftime("%d-%b-%Y")
+        _, data = self._conn.uid("search", None, f'(UNSEEN SINCE "{date_str}")')
+        if not data or not data[0]:
+            return []
+        return data[0].decode().split()
+
+    def fetch_all_unread(self, since_date: datetime = None) -> list[EmailMessage]:
+        """Fetch unread messages, optionally filtered by date."""
+        if since_date:
+            uids = self.get_unread_uids_since(since_date)
+        else:
+            uids = self.get_unread_uids()
         messages = []
         for uid in uids:
             msg = self.fetch_message(uid)

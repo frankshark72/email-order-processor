@@ -107,3 +107,27 @@ def init_db() -> None:
     conn.commit()
     conn.close()
     print(f"[DB] Database inizializzato: {DB_PATH}")
+
+
+def init_pending_db() -> None:
+    """
+    Create only the telegram_pending table in SQLite.
+    Used when EspoCRM is the main backend but we still need to track
+    Telegram message IDs locally (transient internal state).
+    The ordine_id column is TEXT to support both SQLite integer IDs
+    and EspoCRM UUID string IDs.
+    """
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.execute("PRAGMA foreign_keys = OFF")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS telegram_pending (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            ordine_id  TEXT    NOT NULL,
+            message_id INTEGER,
+            chat_id    INTEGER,
+            creato_il  TEXT    DEFAULT (datetime('now'))
+        )
+    """)
+    conn.commit()
+    conn.close()

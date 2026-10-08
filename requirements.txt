@@ -1,6 +1,6 @@
 # Email Order Processor — Dipendenze Python
 
-# HTTP client per Ollama
+# HTTP client per API calls (Anthropic, EspoCRM, Ollama)
 requests>=2.31.0
 
 # Telegram bot

@@ -1,0 +1,9 @@
+[Unit]
+Description=Email to Task Processor - Timer (Lun-Sab 7:00-20:59, ogni 2 min)
+
+[Timer]
+OnCalendar=Mon..Sat *-*-* 07..20:00/2
+Persistent=true
+
+[Install]
+WantedBy=timers.target

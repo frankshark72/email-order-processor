@@ -1,0 +1,12 @@
+[Unit]
+Description=Email Task Processor - Daily Report
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/email-order-processor
+ExecStart=/usr/bin/python3 /root/email-order-processor/process_tasks.py daily-report
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=60

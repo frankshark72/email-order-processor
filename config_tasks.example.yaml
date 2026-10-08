@@ -1,0 +1,53 @@
+# Email → Task Processor — Configurazione
+# Copia questo file in config_tasks.yaml e compila i campi
+
+# ── Caselle email IMAP da monitorare ──────────────────────────
+mailboxes:
+  - label: "info@fcr"
+    host: imaps.aruba.it
+    port: 993
+    username: info@fcrappresentanze.it
+    password: "INSERISCI_PASSWORD_QUI"
+    mailbox: INBOX
+
+  - label: "ordini@fcr"
+    host: imaps.aruba.it
+    port: 993
+    username: ordini@fcrappresentanze.it
+    password: "INSERISCI_PASSWORD_QUI"
+    mailbox: INBOX
+
+  # Aggiungi altre caselle qui:
+  # - label: "exchange"
+  #   host: outlook.office365.com
+  #   port: 993
+  #   username: francesco.cecere@elmospa.com
+  #   password: "APP_PASSWORD_O_OAUTH"
+  #   mailbox: INBOX
+
+# ── EspoCRM API ───────────────────────────────────────────────
+espocrm:
+  url: "http://100.79.250.23:8080"
+  api_key: "INSERISCI_API_KEY_QUI"
+
+# ── Claude AI (Anthropic) ────────────────────────────────────
+anthropic:
+  api_key: "INSERISCI_ANTHROPIC_API_KEY_QUI"
+  # Usa haiku per classificazione veloce e economica
+  model: "claude-haiku-4-5-20251001"
+
+# ── Notifiche via OpenClaw ───────────────────────────────────
+notifications:
+  # ID Telegram (il tuo chat_id)
+  telegram_target: "757789106"
+  # Numero WhatsApp (con prefisso internazionale, es: +393331234567)
+  # whatsapp_target: "+39XXXXXXXXXX"
+
+# ── Comportamento agente ─────────────────────────────────────
+agent:
+  # Secondi tra un controllo e l'altro (default: 120 = 2 minuti)
+  poll_interval_seconds: 120
+  # Salta email informative (newsletter, promo) senza creare task
+  skip_informativa: true
+  # Segna le email come lette dopo averle processate
+  segna_come_letta: true
